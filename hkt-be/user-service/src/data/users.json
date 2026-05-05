@@ -5,5 +5,15 @@
     "fullName": "Nguyen Van A",
     "phone": "0123456789",
     "address": "123 Le Loi, District 1, HCMC"
+  },
+  {
+    "id": "user-1778016384478",
+    "username": "12",
+    "password": "bd04a6c6df0686b7b6c2bc0170373cc74b74e8136a24f45e9db69a9e3831fac6",
+    "email": "hue@gmail.com",
+    "fullName": "123",
+    "phoneNumber": "0334548218",
+    "gender": "MALE",
+    "dateOfBirth": "2003-12-12"
   }
 ]

@@ -3,6 +3,7 @@ import cors from 'cors';
 import userRoutes from './modules/user/user.routes.js';
 import accountRoutes from './modules/account/account.routes.js';
 import addressRoutes from './modules/address/address.routes.js';
+import authRoutes from './modules/auth/auth.routes.js';
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.json());
 app.use('/customer', userRoutes);
 app.use('/accounts', accountRoutes);
 app.use('/addresses', addressRoutes);
+app.use('/auth', authRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

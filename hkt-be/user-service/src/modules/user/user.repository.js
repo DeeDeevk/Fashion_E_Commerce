@@ -25,13 +25,36 @@ async function saveUsers(users) {
 
 export async function findById(id) {
   const users = await loadUsers();
-  const userData = users.find((user) => user.id === id);
+  const userData = users.find((user) => String(user.id) === String(id));
   return userData ? new User(userData) : null;
+}
+
+export async function findByUsername(username) {
+  const users = await loadUsers();
+  const userData = users.find((user) => user.username === username);
+  return userData ? new User(userData) : null;
+}
+
+export async function findByEmail(email) {
+  const users = await loadUsers();
+  const userData = users.find((user) => user.email === email);
+  return userData ? new User(userData) : null;
+}
+
+export async function create(userData) {
+  const users = await loadUsers();
+  const newUser = {
+    id: `user-${Date.now()}`,
+    ...userData
+  };
+  users.push(newUser);
+  await saveUsers(users);
+  return new User(newUser);
 }
 
 export async function updateById(id, updates) {
   const users = await loadUsers();
-  const index = users.findIndex((user) => user.id === id);
+  const index = users.findIndex((user) => String(user.id) === String(id));
   if (index < 0) {
     return null;
   }
@@ -39,6 +62,7 @@ export async function updateById(id, updates) {
   users[index] = {
     ...users[index],
     ...updates,
+    id: users[index].id // prevent ID overwrite
   };
 
   await saveUsers(users);
