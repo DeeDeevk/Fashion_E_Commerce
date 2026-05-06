@@ -12,10 +12,25 @@ spring:
           lower-case-service-id: true
 
       routes:
+        - id: product-service-route
+          uri: lb://product-service
+          predicates:
+            - Path=/products/**,/categories/**,/sizes/**,/size-details/**
+
+        - id: wishlist-service-route
+          uri: lb://WISHLIST-SERVICE
+          predicates:
+            - Path=/wishlists/**
+
         - id: user-service-route
           uri: lb://USER-SERVICE
           predicates:
-            - Path=/**
+            - Path=/users/**,/auth/**,/accounts/**
+
+        - id: cart-service-route
+          uri: lb://CART-SERVICE
+          predicates:
+            - Path=/carts/**,/cart-details/**
 
       globalcors:
         add-to-simple-url-handler-mapping: true
