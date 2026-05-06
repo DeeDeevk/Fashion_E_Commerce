@@ -31,6 +31,10 @@ spring:
           uri: lb://CART-SERVICE
           predicates:
             - Path=/carts/**,/cart-details/**
+        - id: order-service-route
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/**
 
       globalcors:
         add-to-simple-url-handler-mapping: true
