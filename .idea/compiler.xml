@@ -6,19 +6,13 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="api-gateway" />
-        <module name="eureka-server" />
-      </profile>
-      <profile name="Annotation profile for wishlist-service" enabled="true">
-        <sourceOutputDir name="target/generated-sources/annotations" />
-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
-        <processorPath useClasspath="false">
-          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
-        </processorPath>
-        <module name="analytics-service" />
-        <module name="wishlist-service" />
+        <module name="cart-service" />
         <module name="payment-service" />
+        <module name="api-gateway" />
+        <module name="analytics-service" />
+        <module name="eureka-server" />
+        <module name="wishlist-service" />
+        <module name="product_service" />
       </profile>
       <profile name="Annotation profile for cart-service" enabled="true">
         <sourceOutputDir name="../generated-sources/annotations" />
@@ -42,6 +36,7 @@
       <module name="cart-service.test" options="-parameters" />
       <module name="eureka-server" options="-parameters" />
       <module name="payment-service" options="-parameters" />
+      <module name="product_service" options="-parameters" />
       <module name="wishlist-service" options="-parameters" />
     </option>
   </component>
