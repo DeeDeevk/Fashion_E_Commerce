@@ -1,10 +1,14 @@
 // src/components/ChatBot.jsx
 import { useState, useEffect, useRef } from "react";
-
+import { useNavigate } from "react-router-dom";
 const ChatBot = () => {
   const [chatOpen, setChatOpen] = useState(false);
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([
-    { sender: "bot", text: "Xin chào! Mình là trợ lý mua sắm đây. Bạn đang tìm sản phẩm nào hôm nay?" }
+    {
+      sender: "bot",
+      text: "Xin chào! Mình là trợ lý mua sắm đây. Bạn đang tìm sản phẩm nào hôm nay?",
+    },
   ]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -16,7 +20,10 @@ const ChatBot = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.length > 1 || (parsed.length === 1 && parsed[0].sender === "user")) {
+        if (
+          parsed.length > 1 ||
+          (parsed.length === 1 && parsed[0].sender === "user")
+        ) {
           setMessages(parsed);
         }
       } catch (e) {
@@ -26,7 +33,8 @@ const ChatBot = () => {
   }, []);
 
   useEffect(() => {
-    const hasRealMessage = messages.length > 1 || 
+    const hasRealMessage =
+      messages.length > 1 ||
       (messages.length === 1 && messages[0].sender === "user");
     if (hasRealMessage) {
       localStorage.setItem("kh3t_chat_history", JSON.stringify(messages));
@@ -37,7 +45,10 @@ const ChatBot = () => {
     const handleLogout = () => {
       localStorage.removeItem("kh3t_chat_history");
       setMessages([
-        { sender: "bot", text: "Xin chào! Mình là trợ lý mua sắm đây. Bạn đang tìm sản phẩm nào hôm nay?" }
+        {
+          sender: "bot",
+          text: "Xin chào! Mình là trợ lý mua sắm đây. Bạn đang tìm sản phẩm nào hôm nay?",
+        },
       ]);
     };
     window.addEventListener("logout", handleLogout);
@@ -55,51 +66,54 @@ const ChatBot = () => {
 
   // ================== CHỖ SỬA 1: NHẬN JSON TỪ BACKEND ==================
   const sendMessage = async () => {
-  if (!input.trim() || chatLoading) return;
+    if (!input.trim() || chatLoading) return;
 
-  const userMessage = input.trim();
-  setMessages(prev => [...prev, { sender: "user", text: userMessage }]);
-  setInput("");
-  setChatLoading(true);
+    const userMessage = input.trim();
+    setMessages((prev) => [...prev, { sender: "user", text: userMessage }]);
+    setInput("");
+    setChatLoading(true);
 
-  try {
-    const token = localStorage.getItem("accessToken");
+    try {
+      const token = localStorage.getItem("accessToken");
 
-    const res = await fetch("http://localhost:8080/chat/ask", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({ prompt: userMessage }),
-    });
+      const res = await fetch("http://localhost:8080/chat/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ prompt: userMessage }),
+      });
 
-    // Nếu backend trả lỗi HTTP thì throw luôn
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+      // Nếu backend trả lỗi HTTP thì throw luôn
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: data.message || "Dạ em chưa hiểu lắm ạ!",
+          suggestedProducts: data.suggestedProducts || [],
+          compareIds: data.compareIds || null,
+        },
+      ]);
+    } catch (err) {
+      console.error("Chat error:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: "Oops! Có lỗi kết nối rồi, thử lại sau ít phút nhé!",
+        },
+      ]);
+    } finally {
+      setChatLoading(false);
     }
-
-    const data = await res.json();
-
-    setMessages(prev => [...prev, {
-      sender: "bot",
-      text: data.message || "Dạ em chưa hiểu lắm ạ!",
-      suggestedProducts: data.suggestedProducts || [],
-      compareIds: data.compareIds || null,
-    }]);
-  } 
-  catch (err) {
-    console.error("Chat error:", err);
-    setMessages(prev => [...prev, {
-      sender: "bot",
-      text: "Oops! Có lỗi kết nối rồi, thử lại sau ít phút nhé!"
-    }]);
-  } 
-  finally {
-    setChatLoading(false);
-  }
-};
-
+  };
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -114,18 +128,34 @@ const ChatBot = () => {
       <button
         onClick={() => {
           setChatOpen(!chatOpen);
-          window.dispatchEvent(new Event(chatOpen ? "chatbotClosed" : "chatbotOpened"));
+          window.dispatchEvent(
+            new Event(chatOpen ? "chatbotClosed" : "chatbotOpened"),
+          );
         }}
         className="group fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all duration-300 ring-4 ring-white/50"
       >
         <div className="absolute inset-0 -z-10 rounded-full bg-red-600/60 blur-xl opacity-70 group-hover:opacity-100 transition duration-300"></div>
 
         {chatOpen ? (
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-8 h-8 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         ) : (
-          <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <svg
+            className="w-8 h-8 text-white"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
             <path d="M17 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2v3l-3-3H9a2 2 0 0 1-2-2v-1" />
             <path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3 3v-3H5a2 2 0 0 1-2-2V6z" />
             <circle cx="9" cy="9" r="1" />
@@ -173,50 +203,55 @@ const ChatBot = () => {
                     </div>
 
                     {/* Hiển thị sản phẩm gợi ý nếu có */}
-                    {msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {msg.suggestedProducts.map((product) => (
-                          <a
-                            key={product.id}
-                            href={`/product/${product.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl border border-red-200 hover:border-red-400 hover:shadow-lg transition-all transform hover:scale-105"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-semibold text-red-700">Xem ngay: {product.name}</p>
-                                <p className="text-xs text-gray-600 mt-1">Click để xem chi tiết sản phẩm</p>
+                    {msg.suggestedProducts &&
+                      msg.suggestedProducts.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {msg.suggestedProducts.map((product) => (
+                            <button
+                              key={product.id}
+                              onClick={() => navigate(`/product/${product.id}`)}
+                              className="block w-full p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl border border-red-200 hover:border-red-400 hover:shadow-lg transition-all transform hover:scale-105 text-left"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-semibold text-red-700">
+                                    Xem ngay: {product.name}
+                                  </p>
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    Click để xem chi tiết sản phẩm
+                                  </p>
+                                </div>
+                                <span className="text-2xl ml-3">→</span>
                               </div>
-                              <span className="text-2xl ml-3">→</span>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                    {msg.compareIds && msg.compareIds.length >= 2 && (
-<div className="mt-3 space-y-2">
-<a
-href={`/compare?ids=${msg.compareIds.join(',')}`}
-target="_blank"
-rel="noopener noreferrer"
-className="block p-4 bg-red-50 rounded-xl border border-red-200 hover:border-red-400 hover:shadow-lg transition-all transform hover:scale-105"
->
-<div className="flex items-center justify-between">
-<div>
-<p className="font-semibold text-red-700">So sánh {msg.compareIds.length} sản phẩm</p>
-<p className="text-xs text-gray-600 mt-1">Bảng so sánh sẽ hiển thị chi tiết form, chất liệu, giá, size...</p>
-</div>
-<span className="text-2xl ml-3">→</span>
-</div>
-</a>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                   {msg.compareIds && msg.compareIds.length >= 2 && (
+  <div className="mt-3 space-y-2">
+    <button
+      onClick={() => navigate(`/compare?ids=${msg.compareIds.join(",")}`)}
+      className="block w-full p-4 bg-red-50 rounded-xl border border-red-200 hover:border-red-400 hover:shadow-lg transition-all transform hover:scale-105 text-left"
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-semibold text-red-700">
+            So sánh {msg.compareIds.length} sản phẩm
+          </p>
+          <p className="text-xs text-gray-600 mt-1">
+            Bảng so sánh sẽ hiển thị chi tiết form, chất
+            liệu, giá, size...
+          </p>
+        </div>
+        <span className="text-2xl ml-3">→</span>
+      </div>
+    </button>
+  </div>
+)}
 </div>
 )}
-
-                  </div>
-                )}
-              </div>
-            ))}
+</div>
+))}
 
             {chatLoading && (
               <div className="flex justify-start">

@@ -38,6 +38,7 @@ public class ProductService {
 
     // Tên service đăng ký trên Eureka (phải khớp với spring.application.name của order-service)
     static String ORDER_SERVICE_URL = "http://order-service";
+    private final ProductCacheService productCacheService;
 
     // ==================== GET ALL ====================
 

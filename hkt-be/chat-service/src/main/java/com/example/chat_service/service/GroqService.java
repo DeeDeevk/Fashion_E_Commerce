@@ -1,5 +1,6 @@
 package com.example.chat_service.service;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
@@ -17,22 +18,20 @@ public class GroqService {
 
     private final WebClient webClient;
 
-    public GroqService(WebClient webClient) {
+    // Inject đúng bean bằng @Qualifier
+    public GroqService(@Qualifier("groqWebClient") WebClient webClient) {
         this.webClient = webClient;
     }
 
-    /**
-     * Gọi Groq API với system prompt + user prompt riêng biệt.
-     * Groq dùng chuẩn OpenAI: /chat/completions
-     */
     public String generateText(String systemPrompt, String userPrompt) {
+        // Không cần thêm header Authorization ở đây nữa vì đã set ở WebClientConfig
         Map<String, Object> requestBody = Map.of(
                 "model", model,
                 "max_tokens", 512,
                 "temperature", 0.7,
                 "messages", List.of(
                         Map.of("role", "system", "content", systemPrompt),
-                        Map.of("role", "user",   "content", userPrompt)
+                        Map.of("role", "user", "content", userPrompt)
                 )
         );
 
@@ -44,9 +43,7 @@ public class GroqService {
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
 
-            if (response == null || !response.containsKey("choices")) {
-                return null;
-            }
+            if (response == null || !response.containsKey("choices")) return null;
 
             List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
             if (choices == null || choices.isEmpty()) return null;

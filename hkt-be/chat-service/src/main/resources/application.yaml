@@ -1,0 +1,46 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: CHAT-SERVICE
+
+  datasource:
+    url: jdbc:mariadb://localhost:3306/kh3t_shop
+    username: root
+    password: root
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# Eureka
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+  instance:
+    instance-id: ${spring.application.name}:${server.port}
+    prefer-ip-address: true
+    ip-address: 127.0.0.1
+
+# GROQ AI
+groq:
+  api:
+    key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    url: https://api.groq.com/openai/v1
+
+  model: llama-3.3-70b-versatile
+
+# JWT
+jwt:
+  password:
+    reset:
+      secret: c8e09fddda9e192d16c485affabc61c9f4bca77a60c19d448f3a6e8475b9f0a4e0d1f69bca8d21f1123b8f0f8a0b8d12
+      expiration: 900000

@@ -1,7 +1,8 @@
 package com.example.chat_service.controller;
 
-
+import com.example.chat_service.entities.Product;
 import com.example.chat_service.service.GroqService;
+import com.example.chat_service.service.ProductCacheService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
