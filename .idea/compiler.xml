@@ -9,7 +9,20 @@
         <module name="api-gateway" />
         <module name="eureka-server" />
       </profile>
-      <profile name="Annotation profile for chat-service" enabled="true">
+      <profile name="Annotation profile for product_service" enabled="true">
+        <sourceOutputDir name="../generated-sources/annotations" />
+        <sourceTestOutputDir name="../generated-test-sources/test-annotations" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct-processor/1.5.5.Final/mapstruct-processor-1.5.5.Final.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct/1.5.5.Final/mapstruct-1.5.5.Final.jar" />
+        </processorPath>
+        <module name="cart-service.main" />
+        <module name="product_service.test" />
+        <module name="product_service.main" />
+        <module name="cart-service.test" />
+      </profile>
+      <profile name="Annotation profile for wishlist-service" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
@@ -17,9 +30,8 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
         </processorPath>
         <module name="analytics-service" />
-        <module name="chat-service" />
-        <module name="payment-service" />
         <module name="wishlist-service" />
+        <module name="payment-service" />
       </profile>
     </annotationProcessing>
   </component>
@@ -30,9 +42,11 @@
       <module name="cart-service" options="-parameters" />
       <module name="cart-service.main" options="-parameters" />
       <module name="cart-service.test" options="-parameters" />
-      <module name="chat-service" options="-parameters" />
       <module name="eureka-server" options="-parameters" />
       <module name="payment-service" options="-parameters" />
+      <module name="product_service" options="-parameters" />
+      <module name="product_service.main" options="-parameters" />
+      <module name="product_service.test" options="-parameters" />
       <module name="wishlist-service" options="-parameters" />
     </option>
   </component>
