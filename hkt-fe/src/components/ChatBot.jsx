@@ -1,6 +1,9 @@
 // src/components/ChatBot.jsx
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+
+  
 const ChatBot = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const navigate = useNavigate();
@@ -99,6 +102,7 @@ const ChatBot = () => {
           text: data.message || "Dạ em chưa hiểu lắm ạ!",
           suggestedProducts: data.suggestedProducts || [],
           compareIds: data.compareIds || null,
+          cartAction: data.cartAction || null,
         },
       ]);
     } catch (err) {
@@ -112,6 +116,122 @@ const ChatBot = () => {
       ]);
     } finally {
       setChatLoading(false);
+    }
+  };
+
+  const handleCartAction = async (cartAction) => {
+    // chặn spam click khi đang xử lý
+    if (cartAction.loading || cartAction.confirmed) return;
+
+    // set loading cho đúng message hiện tại
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.cartAction === cartAction
+          ? {
+              ...m,
+              cartAction: {
+                ...m.cartAction,
+                loading: true,
+              },
+            }
+          : m,
+      ),
+    );
+
+    try {
+      const token = localStorage.getItem("accessToken");
+
+      let endpoint = "";
+      let body = {};
+
+      // ================= ADD =================
+      if (cartAction.type === "ADD_TO_CART") {
+        endpoint = "http://localhost:8080/chat/cart/confirm-add";
+
+        body = {
+          productId: cartAction.productId,
+          sizeDetailId: cartAction.sizeDetailId,
+          quantity: cartAction.quantity,
+        };
+      }
+
+      // ================= REMOVE =================
+      if (cartAction.type === "REMOVE_FROM_CART") {
+        endpoint = "http://localhost:8080/chat/cart/confirm-remove";
+
+        body = {
+          cartDetailId: cartAction.cartDetailId,
+        };
+      }
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      // update message hiện tại -> confirmed
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.cartAction === cartAction
+            ? {
+                ...m,
+                cartAction: {
+                  ...m.cartAction,
+                  confirmed: true,
+                  loading: false,
+                },
+              }
+            : m,
+        ),
+      );
+setMessages((prev) => [
+  ...prev,
+  {
+    sender: "bot",
+    text: data.message || "Thao tác thành công 🎉",
+  },
+]);
+      // thêm tin nhắn bot
+     const toastMsg =
+  cartAction.type === "ADD_TO_CART"
+    ? `Đã thêm ${cartAction.productName} vào giỏ hàng! 🛒`
+    : `Đã xóa sản phẩm khỏi giỏ hàng! 🗑️`;
+toast.success(toastMsg);
+    } catch (err) {
+      console.error(err);
+
+      // reset loading nếu lỗi
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.cartAction === cartAction
+            ? {
+                ...m,
+                cartAction: {
+                  ...m.cartAction,
+                  loading: false,
+                },
+              }
+            : m,
+        ),
+      );
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: "Có lỗi khi xử lý giỏ hàng 😔",
+        },
+      ]);
     }
   };
 
@@ -227,31 +347,49 @@ const ChatBot = () => {
                           ))}
                         </div>
                       )}
-                   {msg.compareIds && msg.compareIds.length >= 2 && (
-  <div className="mt-3 space-y-2">
-    <button
-      onClick={() => navigate(`/compare?ids=${msg.compareIds.join(",")}`)}
-      className="block w-full p-4 bg-red-50 rounded-xl border border-red-200 hover:border-red-400 hover:shadow-lg transition-all transform hover:scale-105 text-left"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-semibold text-red-700">
-            So sánh {msg.compareIds.length} sản phẩm
-          </p>
-          <p className="text-xs text-gray-600 mt-1">
-            Bảng so sánh sẽ hiển thị chi tiết form, chất
-            liệu, giá, size...
-          </p>
-        </div>
-        <span className="text-2xl ml-3">→</span>
-      </div>
-    </button>
-  </div>
-)}
-</div>
-)}
-</div>
-))}
+                   {msg.cartAction && !msg.cartAction.confirmed && !msg.cartAction.loading && (
+                      
+                      <div className="mt-3">
+                        <button
+                          onClick={() => handleCartAction(msg.cartAction)}
+                          disabled={msg.cartAction.loading}
+                          className="w-full p-4 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-all"
+                        >
+                          {msg.cartAction.loading
+                            ? "Đang xử lý..."
+                            : msg.cartAction.type === "ADD_TO_CART"
+                              ? "🛒 Xác nhận thêm vào giỏ"
+                              : "🗑️ Xác nhận xóa khỏi giỏ"}
+                        </button>
+                      </div>
+                    )}
+                    {msg.compareIds && msg.compareIds.length >= 2 && (
+                      <div className="mt-3 space-y-2">
+                        <button
+                          onClick={() =>
+                            navigate(`/compare?ids=${msg.compareIds.join(",")}`)
+                          }
+                          className="block w-full p-4 bg-red-50 rounded-xl border border-red-200 hover:border-red-400 hover:shadow-lg transition-all transform hover:scale-105 text-left"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-semibold text-red-700">
+                                So sánh {msg.compareIds.length} sản phẩm
+                              </p>
+                              <p className="text-xs text-gray-600 mt-1">
+                                Bảng so sánh sẽ hiển thị chi tiết form, chất
+                                liệu, giá, size...
+                              </p>
+                            </div>
+                            <span className="text-2xl ml-3">→</span>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
 
             {chatLoading && (
               <div className="flex justify-start">

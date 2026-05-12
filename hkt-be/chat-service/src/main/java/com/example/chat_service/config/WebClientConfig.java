@@ -1,5 +1,6 @@
 package com.example.chat_service.config;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +18,24 @@ public class WebClientConfig {
         return WebClient.builder()
                 .baseUrl(groqApiUrl)
                 .defaultHeader("Authorization", "Bearer " + groqApiKey)
+                .defaultHeader("Content-Type", "application/json")
+                .build();
+    }
+
+    @Bean("ollamaWebClient")
+    public WebClient ollamaWebClient(
+            @Value("${ollama.url}") String ollamaUrl) {
+        return WebClient.builder()
+                .baseUrl(ollamaUrl)
+                .defaultHeader("Content-Type", "application/json")
+                .build();
+    }
+
+    @Bean("cartWebClient")
+    public WebClient cartWebClient(
+            @Qualifier("loadBalancedBuilder") WebClient.Builder loadBalancedBuilder) {
+        return loadBalancedBuilder
+                .baseUrl("lb://cart-service")
                 .defaultHeader("Content-Type", "application/json")
                 .build();
     }

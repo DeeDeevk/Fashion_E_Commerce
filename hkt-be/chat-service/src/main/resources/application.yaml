@@ -33,7 +33,7 @@ eureka:
 # GROQ AI
 groq:
   api:
-    key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     url: https://api.groq.com/openai/v1
 
   model: llama-3.3-70b-versatile
@@ -44,3 +44,12 @@ jwt:
     reset:
       secret: c8e09fddda9e192d16c485affabc61c9f4bca77a60c19d448f3a6e8475b9f0a4e0d1f69bca8d21f1123b8f0f8a0b8d12
       expiration: 900000
+
+# Qdrant Vector DB
+qdrant:
+  host: localhost
+  port: 6334
+# Ollama
+ollama:
+  url: http://localhost:11434
+  model: mxbai-embed-large

@@ -14,4 +14,5 @@ public interface CartDetailRepository extends JpaRepository<CartDetail, Integer>
     CartDetail findByCartAndProductAndSizeDetail(Cart cart, Product product, SizeDetail sizeDetail);
     List<CartDetail> findByCart(Cart cart);
     List<CartDetail> findByIsSelectedAndCart(boolean isSelected, Cart cart);
+    List<CartDetail> findByCartId(int cartId);
 }
