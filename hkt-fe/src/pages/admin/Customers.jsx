@@ -256,7 +256,7 @@ export default function Customers() {
 
     try {
       // KHÔNG thêm Content-Type, KHÔNG thêm body
-      const res = await fetch(`http://localhost:8080/customers/email/sale/all`, {
+      const res = await fetch(`http://localhost:8080/admin/customers/email/sale/all`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`

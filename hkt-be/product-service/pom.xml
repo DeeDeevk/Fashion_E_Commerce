@@ -11,7 +11,7 @@
 	<groupId>fit.iuh</groupId>
 	<artifactId>product_service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<packaging>war</packaging>
+	<packaging>jar</packaging>
 	<name/>
 	<description/>
 	<url/>
@@ -120,6 +120,7 @@
 	</dependencyManagement>
 
 	<build>
+		<finalName>product-service</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
