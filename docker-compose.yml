@@ -214,6 +214,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+    restart: unless-stopped
+
+    volumes:
+      - redis_data:/data
+
+    command: redis-server --appendonly yes
+
+    networks:
+      - hkt-network
 networks:
   hkt-network:
     driver: bridge
@@ -221,3 +236,4 @@ networks:
 volumes:
   mariadb_data:
   ollama_data:
+  redis_data:

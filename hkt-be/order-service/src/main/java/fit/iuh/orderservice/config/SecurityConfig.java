@@ -37,7 +37,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/accounts/username/*", "/products", "/products/**", "/categories", "/categories/**", "/cart-details/**", "/cart-details/cart/**", "/carts/", "/carts/**","/addresses/", "/addresses/**", "/sizes", "/orders", "/orders/**", "/invoices", "/invoices/**", "/customers", "/customers/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/chat/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/chat/**").permitAll()
-                        .requestMatchers("/admin-chat/**").hasRole("ADMIN")
+                        // ← THÊM DÒNG NÀY
+                        .requestMatchers("/admin-cha                        .requestMatchers(HttpMethod.GET, \"/order-details/sold-quantity-all\", \"/order-details/sold-quantity\", \"/order-details/top-trending\").permitAll()\nt/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(auth -> auth

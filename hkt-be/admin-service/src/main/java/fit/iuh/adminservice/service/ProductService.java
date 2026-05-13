@@ -1,4 +1,3 @@
-// Updated ProductService.java
 package fit.iuh.adminservice.service;
 
 import fit.iuh.adminservice.dto.request.ProductRequest;
@@ -12,24 +11,21 @@ import fit.iuh.adminservice.entities.Product;
 import fit.iuh.adminservice.entities.Size;
 import fit.iuh.adminservice.entities.SizeDetail;
 import fit.iuh.adminservice.enums.Status;
-import fit.iuh.adminservice.exception.AppException;
-import fit.iuh.adminservice.exception.ErrorCode;
-import fit.iuh.adminservice.mapper.ProductMapper;
 import fit.iuh.adminservice.repository.CategoryRepository;
-import fit.iuh.adminservice.repository.OrderDetailRepository;
 import fit.iuh.adminservice.repository.ProductRepository;
 import fit.iuh.adminservice.repository.SizeRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -39,116 +35,132 @@ import java.util.stream.Collectors;
 public class ProductService {
 
     ProductRepository productRepository;
-    OrderDetailRepository orderDetailRepository;
     CategoryRepository categoryRepository;
     SizeRepository sizeRepository;
-    ProductMapper productMapper;
+    RestTemplate restTemplate;
 
+    // Tên service đăng ký trên Eureka (phải khớp với spring.application.name của order-service)
+    static String ORDER_SERVICE_URL = "http://order-service";
+    private final ProductCacheService productCacheService;
+
+    // ==================== GET ALL ====================
+
+    @Cacheable(value = "allProducts")
     public List<ProductResponse> getAllProducts() {
+
+        System.out.println("GET PRODUCTS FROM MYSQL");
+
         List<Product> products = productRepository.findAll();
 
-        // Lấy tổng sold quantity cho tất cả sản phẩm
-        List<Object[]> soldQuantities = orderDetailRepository.findSoldQuantityByProductId();
+        Map<Integer, Long> soldMap = new HashMap<>();
 
-        // Tạo map: productId -> soldQuantity
-        Map<Integer, Long> soldMap = soldQuantities.stream()
-                .collect(Collectors.toMap(
-                        obj -> (Integer) obj[0],
-                        obj -> obj[1] != null ? ((Number) obj[1]).longValue() : 0L
-                ));
+        try {
+            Map<String, Object> response = restTemplate.getForObject(
+                    ORDER_SERVICE_URL + "/order-details/sold-quantity-all",
+                    Map.class
+            );
+            System.out.println("Response từ order-service: " + response); // ← THÊM DÒNG NÀY
 
-        // Convert + thêm soldQuantity
+            if (response != null && response.containsKey("result")) {
+                Map<String, Object> raw = (Map<String, Object>) response.get("result");
+
+                raw.forEach((k, v) ->
+                        soldMap.put(Integer.parseInt(k), ((Number) v).longValue()));
+            }
+
+        } catch (Exception e) {
+            System.out.println("LỖI gọi order-service: " + e.getMessage()); // ← THÊM DÒNG NÀY
+        }
+
         return products.stream()
-                .map(product -> {
-                    return convertToProductResponse(product, soldMap.getOrDefault(product.getId(), 0L));})
+                .map(product -> convertToProductResponse(
+                        product,
+                        soldMap.getOrDefault(product.getId(), 0L)))
                 .collect(Collectors.toList());
     }
 
+    // ==================== GET BY ID ====================
+    @Cacheable(value = "product", key = "#id")
     public ProductResponse getProductById(int id) {
-        Optional<Product> optionalProduct = productRepository.findById(id);
-        if (optionalProduct.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with id: " + id);
-        }
 
-        Product product = optionalProduct.get();
+        System.out.println("GET PRODUCT ID " + id + " FROM MYSQL");
 
-        // Lấy sold quantity cho sản phẩm này
-        Long soldQuantity = orderDetailRepository.findSoldQuantityByProductId(id);
-        if (soldQuantity == null) {
-            soldQuantity = 0L;
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Product not found with id: " + id));
+
+        Long soldQuantity = 0L;
+
+        try {
+            Map<String, Object> response = restTemplate.getForObject(
+                    ORDER_SERVICE_URL + "/order-details/sold-quantity?productId=" + id,
+                    Map.class
+            );
+
+            if (response != null && response.containsKey("result")) {
+                soldQuantity = ((Number) response.get("result")).longValue();
+            }
+
+        } catch (Exception e) {
+            System.out.println("LỖI gọi order-service: " + e.getMessage()); // ← THÊM DÒNG NÀY
         }
 
         return convertToProductResponse(product, soldQuantity);
     }
 
-    // Helper method để convert Entity -> DTO (update với fields mới)
-    private ProductResponse convertToProductResponse(Product product, Long soldQuantity) {
-        // Convert sizeDetails
-        List<SizeDetailResponse> sizeDetailResponses = product.getSizeDetails().stream()
-                .map(sd -> SizeDetailResponse.builder()
-                        .id(sd.getId())
-                        .sizeName(sd.getSize().getNameSize().name()) // Giả sử SizeName là enum, lấy string
-                        .quantity(sd.getQuantity())
-                        .build())
-                .collect(Collectors.toList());
-        return ProductResponse.builder()
-                .id(product.getId())
-                .name(product.getName())
-                .description(product.getDescription())
-                .price(product.getPrice())
+    // ==================== GET BY IDs ====================
 
-                .costPrice(product.getCostPrice()) // THÊM
-                .unit(product.getUnit())
-                .quantity(product.getQuantity())
-                .imageUrlFront(product.getImageUrlFront())
-                .imageUrlBack(product.getImageUrlBack())
-                .createdAt(product.getCreatedAt()) // THÊM
-                .updatedAt(product.getUpdatedAt())
-                .rating(product.getRating())
-                .discountAmount(product.getDiscountAmount())
-                .material(product.getMaterial()) // THÊM
-                .form(product.getForm()) // THÊM
-                .soldQuantity(soldQuantity)
-                .status(product.getStatus())
-                .category(
-                        CategoryResponse.builder()
-                                .id(product.getCategory().getId())
-                                .name(product.getCategory().getName())
-                                .imageUrl(product.getCategory().getImageUrl()) // THÊM
-                                .build()
-                )
-                .sizeDetails(sizeDetailResponses) // THÊM
-
-                .build();
-
-
-    }
-
-    // THÊM PHƯƠNG THỨC MỚI: Lấy danh sách sản phẩm theo IDs
+    @Cacheable(value = "productsByIds", key = "#ids")
     public List<ProductResponse> getProductsByIds(List<Integer> ids) {
+
+        System.out.println("GET PRODUCTS BY IDS FROM MYSQL");
+
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+
         List<Product> products = productRepository.findAllById(ids);
 
-        // 2. Lấy sold quantity cho tất cả sản phẩm
-        // Dùng phương pháp tối ưu: Lấy sold quantity cho toàn bộ hoặc chỉ các sản phẩm cần thiết
-        List<Object[]> soldQuantities = orderDetailRepository.findSoldQuantityByProductId();
+        Map<Integer, Long> soldMap = new HashMap<>();
 
-        // Tạo map: productId -> soldQuantity
-        Map<Integer, Long> soldMap = soldQuantities.stream()
-                .collect(Collectors.toMap(
-                        obj -> (Integer) obj[0],
-                        obj -> obj[1] != null ? ((Number) obj[1]).longValue() : 0L
-                ));
+        try {
+            Map<String, Object> response = restTemplate.getForObject(
+                    ORDER_SERVICE_URL + "/order-details/sold-quantity-all",
+                    Map.class
+            );
 
-        // 3. Convert Entity -> DTO và thêm Sold Quantity
+            if (response != null && response.containsKey("result")) {
+
+                Map<String, Object> raw =
+                        (Map<String, Object>) response.get("result");
+
+                raw.forEach((k, v) ->
+                        soldMap.put(Integer.parseInt(k),
+                                ((Number) v).longValue()));
+            }
+
+        } catch (Exception e) {
+            System.out.println("LỖI gọi order-service: " + e.getMessage()); // ← THÊM DÒNG NÀY
+        }
+
         return products.stream()
-                .map(product -> {
-                    // Tái sử dụng helper method convertToProductResponse
-                    return convertToProductResponse(product, soldMap.getOrDefault(product.getId(), 0L));
-                })
+                .map(product -> convertToProductResponse(
+                        product,
+                        soldMap.getOrDefault(product.getId(), 0L)))
                 .collect(Collectors.toList());
     }
 
+    // ==================== CREATE ====================
+
+    @Caching(evict = {
+            @CacheEvict(value = "allProducts", allEntries = true),
+            @CacheEvict(value = "productsByIds", allEntries = true)
+    })
     public ProductResponse createProduct(ProductRequest productRequest) {
+
+        System.out.println("CREATE PRODUCT -> CLEAR REDIS CACHE");
+
         Product product = Product.builder()
                 .name(productRequest.getName())
                 .description(productRequest.getDescription())
@@ -157,46 +169,87 @@ public class ProductService {
                 .imageUrlFront(productRequest.getImageUrlFront())
                 .imageUrlBack(productRequest.getImageUrlBack())
                 .discountAmount(productRequest.getDiscountAmount())
-                .material(productRequest.getMaterial()) // THÊM
+                .material(productRequest.getMaterial())
                 .form(productRequest.getForm())
                 .build();
-        Category category = categoryRepository.findByName(productRequest.getCategoryRequest().getName()).orElseThrow(
-                ()-> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+
+        Category category = categoryRepository.findByName(
+                        productRequest.getCategoryRequest().getName())
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Category not found"));
+
         List<SizeDetail> sizeDetails = new ArrayList<>();
-        if(sizeDetails!= null){
-            productRequest.getSizeDetailRequests().forEach(sizeDetailRequest -> {
-                SizeDetail sizeDetail = new SizeDetail();
-                Size size = sizeRepository.findByNameSize(sizeDetailRequest.getSizeRequest().getNameSize()).orElseThrow(
-                        ()-> new AppException(ErrorCode.UnknownError));
-                sizeDetail.setSize(size);
-                sizeDetail.setProduct(product);
-                sizeDetail.setQuantity(sizeDetailRequest.getQuantity());
-                sizeDetails.add(sizeDetail);
-            });
-        }
-        int quantity = 0;
-        for (SizeDetail sd : sizeDetails) {
-            quantity += sd.getQuantity();
-        }
-        double costPrice = 0.0;
-        costPrice  = productRequest.getPrice() - (productRequest.getPrice() * productRequest.getDiscountAmount()/100);
-        double rating = 0.0;
+
+        productRequest.getSizeDetailRequests()
+                .forEach(sizeDetailRequest -> {
+
+                    SizeDetail sizeDetail = new SizeDetail();
+
+                    Size size = sizeRepository.findByNameSize(
+                                    sizeDetailRequest.getSizeRequest().getNameSize())
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.NOT_FOUND,
+                                            "Size not found"));
+
+                    sizeDetail.setSize(size);
+                    sizeDetail.setProduct(product);
+                    sizeDetail.setQuantity(sizeDetailRequest.getQuantity());
+
+                    sizeDetails.add(sizeDetail);
+                });
+
+        int quantity = sizeDetails.stream()
+                .mapToInt(SizeDetail::getQuantity)
+                .sum();
+
+        double costPrice = productRequest.getPrice()
+                - (productRequest.getPrice()
+                * productRequest.getDiscountAmount() / 100);
+
         product.setCostPrice(costPrice);
-        product.setRating(rating);
+        product.setRating(0.0);
         product.setQuantity(quantity);
         product.setSizeDetails(sizeDetails);
         product.setCategory(category);
         product.setBrand("HK3T");
         product.setStatus(Status.ACTIVE);
-        product.setCreatedAt(Date.from(LocalDate.now().atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant()));
-        product.setUpdatedAt(Date.from(LocalDate.now().atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant()));
+
+        product.setCreatedAt(Date.from(LocalDate.now()
+                .atStartOfDay()
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant()));
+
+        product.setUpdatedAt(Date.from(LocalDate.now()
+                .atStartOfDay()
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant()));
+
         Product savedProduct = productRepository.save(product);
-        return productMapper.toProductResponse(savedProduct);
+
+        return convertToProductResponse(savedProduct, 0L);
     }
 
-    public ProductResponse updateProduct(int id, ProductRequest productRequest) {
-        Product existingProduct = productRepository.findById(id).orElseThrow(
-                ()-> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+    // ==================== UPDATE ====================
+
+    @Caching(evict = {
+            @CacheEvict(value = "allProducts", allEntries = true),
+            @CacheEvict(value = "productsByIds", allEntries = true),
+            @CacheEvict(value = "product", key = "#id")
+    })
+    public ProductResponse updateProduct(int id,
+                                         ProductRequest productRequest) {
+
+        System.out.println("UPDATE PRODUCT -> CLEAR REDIS CACHE");
+
+        Product existingProduct = productRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Product not found"));
+
         existingProduct.setName(productRequest.getName());
         existingProduct.setDescription(productRequest.getDescription());
         existingProduct.setPrice(productRequest.getPrice());
@@ -204,148 +257,183 @@ public class ProductService {
         existingProduct.setImageUrlFront(productRequest.getImageUrlFront());
         existingProduct.setImageUrlBack(productRequest.getImageUrlBack());
         existingProduct.setDiscountAmount(productRequest.getDiscountAmount());
-        existingProduct.setMaterial(productRequest.getMaterial()); // THÊM
-        existingProduct.setForm(productRequest.getForm()); // THÊM
+        existingProduct.setMaterial(productRequest.getMaterial());
+        existingProduct.setForm(productRequest.getForm());
         existingProduct.setStatus(Status.ACTIVE);
 
-        Category category = categoryRepository.findByName(productRequest.getCategoryRequest().getName()).orElseThrow(
-                ()-> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+        Category category = categoryRepository.findByName(
+                        productRequest.getCategoryRequest().getName())
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Category not found"));
+
         existingProduct.setCategory(category);
-        existingProduct.setUpdatedAt(Date.from(LocalDate.now().atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant()));
 
         List<SizeDetail> sizeDetails = existingProduct.getSizeDetails();
-        List<SizeDetailRequest> requestedSizeDetails = productRequest.getSizeDetailRequests();
+
+        List<SizeDetailRequest> requestedSizeDetails =
+                productRequest.getSizeDetailRequests();
+
         for (SizeDetail sd : sizeDetails) {
+
             for (SizeDetailRequest sdr : requestedSizeDetails) {
-                if (sd.getSize().getNameSize().equals(sdr.getSizeRequest().getNameSize())) {
+
+                if (sd.getSize().getNameSize()
+                        .equals(sdr.getSizeRequest().getNameSize())) {
+
                     sd.setQuantity(sdr.getQuantity());
                     break;
                 }
             }
         }
 
-        int quantity = 0;
-        for (SizeDetail sd : sizeDetails) {
-            quantity += sd.getQuantity();
-        }
-        double costPrice = 0.0;
-        costPrice  = productRequest.getPrice() - (productRequest.getPrice() * productRequest.getDiscountAmount()/100);
+        int quantity = sizeDetails.stream()
+                .mapToInt(SizeDetail::getQuantity)
+                .sum();
+
+        double costPrice = productRequest.getPrice()
+                - (productRequest.getPrice()
+                * productRequest.getDiscountAmount() / 100);
+
         existingProduct.setCostPrice(costPrice);
         existingProduct.setQuantity(quantity);
         existingProduct.setSizeDetails(sizeDetails);
-        existingProduct.setCategory(category);
         existingProduct.setBrand("HK3T");
-        existingProduct.setStatus(Status.ACTIVE);
-        existingProduct.setUpdatedAt(Date.from(LocalDate.now().atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant()));
+
+        existingProduct.setUpdatedAt(Date.from(LocalDate.now()
+                .atStartOfDay()
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant()));
 
         Product updatedProduct = productRepository.save(existingProduct);
-        return productMapper.toProductResponse(updatedProduct);
+
+        return convertToProductResponse(updatedProduct, 0L);
     }
 
+    // ==================== DELETE ====================
 
+    @Caching(evict = {
+            @CacheEvict(value = "allProducts", allEntries = true),
+            @CacheEvict(value = "productsByIds", allEntries = true),
+            @CacheEvict(value = "product", key = "#id")
+    })
     public void deleteProduct(int id) {
-        Product existingProduct = productRepository.findById(id).orElseThrow(
-                ()-> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        System.out.println("DELETE PRODUCT -> CLEAR REDIS CACHE");
+
+        Product existingProduct = productRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Product not found"));
+
         existingProduct.setStatus(Status.INACTIVE);
+
         productRepository.save(existingProduct);
     }
 
+    // ==================== SALE PRODUCTS ====================
 
     public List<Product> getSaleProducts() {
         return productRepository.findByDiscountAmountGreaterThan(0.1);
     }
 
+    // ==================== TOP TRENDING ====================
+    // Gọi order-service để lấy top trending
+    // Nếu order-service chưa có → trả về list rỗng, không crash
 
+    @Cacheable(value = "topTrending", key = "#type")
     public List<TopProductResponse> getTopTrending(String type) {
 
-        // ===== Xác định thời gian =====
-        Date now = new Date();
-        Date start;
-        Date prevStart;
-        Date prevEnd;
+        System.out.println("GET TOP TRENDING FROM MYSQL");
 
-        switch (type.toLowerCase()) {
-            case "week":
-                start = Date.from(now.toInstant().minus(7, ChronoUnit.DAYS));
+        try {
 
-                prevEnd = start;
-                prevStart = Date.from(prevEnd.toInstant().minus(7, ChronoUnit.DAYS));
-                break;
+            Map[] rawList = restTemplate.getForObject(
+                    ORDER_SERVICE_URL +
+                            "/order-details/top-trending?type=" + type,
+                    Map[].class
+            );
 
-            case "month":
-                start = Date.from(now.toInstant().minus(30, ChronoUnit.DAYS));
-
-                prevEnd = start;
-                prevStart = Date.from(prevEnd.toInstant().minus(30, ChronoUnit.DAYS));
-                break;
-
-            case "year":
-                start = Date.from(now.toInstant().minus(365, ChronoUnit.DAYS));
-
-                prevEnd = start;
-                prevStart = Date.from(prevEnd.toInstant().minus(365, ChronoUnit.DAYS));
-                break;
-
-            default:
-                throw new RuntimeException("Invalid type, must be week / month / year");
-        }
-        Pageable top10 = PageRequest.of(0, 10);
-        // ===== Query kỳ hiện tại =====
-        List<Object[]> topData = orderDetailRepository.getTopTrending(start, now, top10);
-
-        // ===== Query kỳ trước (để tính trend %) =====
-        List<Object[]> prevData = orderDetailRepository.getSalesInPeriod(prevStart, prevEnd, top10);
-
-        // Convert thành map productId → số lượng kỳ trước
-        Map<Integer, Integer> prevSalesMap = prevData.stream()
-                .collect(Collectors.toMap(
-                        row -> (Integer) row[0],
-                        row -> ((Long) row[1]).intValue()
-                ));
-
-        // ===== Build response =====
-        List<TopProductResponse> result = new ArrayList<>();
-
-        for (Object[] row : topData) {
-            Integer productId = (Integer) row[0];
-            int sales = ((Long) row[1]).intValue();
-            double revenue = (Double) row[2];
-
-            Product p = productRepository.findById(productId).orElse(null);
-
-            if (p == null) continue;
-
-            int prevSales = prevSalesMap.getOrDefault(productId, 0);
-
-            // Tính % trend
-            String trend;
-            if (prevSales == 0) {
-                trend = "+100%";
-            } else {
-                double change = ((double) (sales - prevSales) / prevSales) * 100;
-                trend = String.format("%+.0f%%", change);
+            if (rawList == null) {
+                return new ArrayList<>();
             }
 
-            result.add(new TopProductResponse(
-                    p.getName(),
-                    p.getCategory() != null ? p.getCategory().getName() : "Unknown",
-                    sales,
-                    revenue,
-                    trend,
-                    p.getImageUrlFront()  // FE cần emoji thì FE tự thay
-            ));
-        }
+            List<TopProductResponse> result = new ArrayList<>();
 
-        return result;
+            for (Map raw : rawList) {
+
+                Integer productId = (Integer) raw.get("productId");
+
+                Product p = productRepository.findById(productId)
+                        .orElse(null);
+
+                if (p == null) continue;
+
+                result.add(new TopProductResponse(
+                        p.getName(),
+                        p.getCategory() != null
+                                ? p.getCategory().getName()
+                                : "Unknown",
+                        ((Number) raw.get("sales")).intValue(),
+                        ((Number) raw.get("revenue")).doubleValue(),
+                        (String) raw.get("trend"),
+                        p.getImageUrlFront()
+                ));
+            }
+
+            return result;
+
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
     }
+
+    // ==================== DASHBOARD STATS ====================
 
     public Map<String, Long> getDashboardStats() {
         Map<String, Long> stats = new HashMap<>();
-
         stats.put("totalProducts", productRepository.getTotalProducts());
-        stats.put("lowStock", productRepository.getLowStockProducts(10));  // tồn kho < 10
-
+        stats.put("lowStock", productRepository.getLowStockProducts(10));
         return stats;
     }
 
+    // ==================== HELPER ====================
+
+    private ProductResponse convertToProductResponse(Product product, Long soldQuantity) {
+        List<SizeDetailResponse> sizeDetailResponses = product.getSizeDetails().stream()
+                .map(sd -> SizeDetailResponse.builder()
+                        .id(sd.getId())
+                        .sizeName(sd.getSize().getNameSize().name())
+                        .quantity(sd.getQuantity())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ProductResponse.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .description(product.getDescription())
+                .price(product.getPrice())
+                .costPrice(product.getCostPrice())
+                .unit(product.getUnit())
+                .quantity(product.getQuantity())
+                .imageUrlFront(product.getImageUrlFront())
+                .imageUrlBack(product.getImageUrlBack())
+                .createdAt(product.getCreatedAt())
+                .updatedAt(product.getUpdatedAt())
+                .rating(product.getRating())
+                .discountAmount(product.getDiscountAmount())
+                .material(product.getMaterial())
+                .form(product.getForm())
+                .soldQuantity(soldQuantity)
+                .status(product.getStatus())
+                .category(CategoryResponse.builder()
+                        .id(product.getCategory().getId())
+                        .name(product.getCategory().getName())
+                        .imageUrl(product.getCategory().getImageUrl())
+                        .build())
+                .sizeDetails(sizeDetailResponses)
+                .build();
+    }
 }

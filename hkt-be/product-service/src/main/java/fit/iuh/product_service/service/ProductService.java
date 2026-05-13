@@ -17,6 +17,9 @@ import fit.iuh.product_service.repository.SizeRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -42,49 +45,65 @@ public class ProductService {
 
     // ==================== GET ALL ====================
 
+    @Cacheable(value = "allProducts")
     public List<ProductResponse> getAllProducts() {
+
+        System.out.println("GET PRODUCTS FROM MYSQL");
+
         List<Product> products = productRepository.findAll();
 
-        // Gọi order-service lấy soldQuantity cho tất cả sản phẩm
-        // Nếu order-service chưa có → catch exception, mặc định 0, không bị crash
         Map<Integer, Long> soldMap = new HashMap<>();
+
         try {
             Map<String, Object> response = restTemplate.getForObject(
                     ORDER_SERVICE_URL + "/order-details/sold-quantity-all",
                     Map.class
             );
+            System.out.println("Response từ order-service: " + response); // ← THÊM DÒNG NÀY
+
             if (response != null && response.containsKey("result")) {
                 Map<String, Object> raw = (Map<String, Object>) response.get("result");
-                raw.forEach((k, v) -> soldMap.put(Integer.parseInt(k), ((Number) v).longValue()));
+
+                raw.forEach((k, v) ->
+                        soldMap.put(Integer.parseInt(k), ((Number) v).longValue()));
             }
+
         } catch (Exception e) {
-            // order-service chưa chạy → soldQuantity = 0 cho tất cả
+            System.out.println("LỖI gọi order-service: " + e.getMessage()); // ← THÊM DÒNG NÀY
         }
 
         return products.stream()
                 .map(product -> convertToProductResponse(
-                        product, soldMap.getOrDefault(product.getId(), 0L)))
+                        product,
+                        soldMap.getOrDefault(product.getId(), 0L)))
                 .collect(Collectors.toList());
     }
 
     // ==================== GET BY ID ====================
-
+    @Cacheable(value = "product", key = "#id")
     public ProductResponse getProductById(int id) {
+
+        System.out.println("GET PRODUCT ID " + id + " FROM MYSQL");
+
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Product not found with id: " + id));
+                        HttpStatus.NOT_FOUND,
+                        "Product not found with id: " + id));
 
         Long soldQuantity = 0L;
+
         try {
             Map<String, Object> response = restTemplate.getForObject(
                     ORDER_SERVICE_URL + "/order-details/sold-quantity?productId=" + id,
                     Map.class
             );
+
             if (response != null && response.containsKey("result")) {
                 soldQuantity = ((Number) response.get("result")).longValue();
             }
+
         } catch (Exception e) {
-            // order-service chưa chạy → soldQuantity = 0
+            System.out.println("LỖI gọi order-service: " + e.getMessage()); // ← THÊM DÒNG NÀY
         }
 
         return convertToProductResponse(product, soldQuantity);
@@ -92,34 +111,56 @@ public class ProductService {
 
     // ==================== GET BY IDs ====================
 
+    @Cacheable(value = "productsByIds", key = "#ids")
     public List<ProductResponse> getProductsByIds(List<Integer> ids) {
-        if (ids == null || ids.isEmpty()) return new ArrayList<>();
+
+        System.out.println("GET PRODUCTS BY IDS FROM MYSQL");
+
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
 
         List<Product> products = productRepository.findAllById(ids);
 
         Map<Integer, Long> soldMap = new HashMap<>();
+
         try {
             Map<String, Object> response = restTemplate.getForObject(
                     ORDER_SERVICE_URL + "/order-details/sold-quantity-all",
                     Map.class
             );
+
             if (response != null && response.containsKey("result")) {
-                Map<String, Object> raw = (Map<String, Object>) response.get("result");
-                raw.forEach((k, v) -> soldMap.put(Integer.parseInt(k), ((Number) v).longValue()));
+
+                Map<String, Object> raw =
+                        (Map<String, Object>) response.get("result");
+
+                raw.forEach((k, v) ->
+                        soldMap.put(Integer.parseInt(k),
+                                ((Number) v).longValue()));
             }
+
         } catch (Exception e) {
-            // order-service chưa chạy → soldQuantity = 0
+            System.out.println("LỖI gọi order-service: " + e.getMessage()); // ← THÊM DÒNG NÀY
         }
 
         return products.stream()
                 .map(product -> convertToProductResponse(
-                        product, soldMap.getOrDefault(product.getId(), 0L)))
+                        product,
+                        soldMap.getOrDefault(product.getId(), 0L)))
                 .collect(Collectors.toList());
     }
 
     // ==================== CREATE ====================
 
+    @Caching(evict = {
+            @CacheEvict(value = "allProducts", allEntries = true),
+            @CacheEvict(value = "productsByIds", allEntries = true)
+    })
     public ProductResponse createProduct(ProductRequest productRequest) {
+
+        System.out.println("CREATE PRODUCT -> CLEAR REDIS CACHE");
+
         Product product = Product.builder()
                 .name(productRequest.getName())
                 .description(productRequest.getDescription())
@@ -132,23 +173,41 @@ public class ProductService {
                 .form(productRequest.getForm())
                 .build();
 
-        Category category = categoryRepository.findByName(productRequest.getCategoryRequest().getName())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+        Category category = categoryRepository.findByName(
+                        productRequest.getCategoryRequest().getName())
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Category not found"));
 
         List<SizeDetail> sizeDetails = new ArrayList<>();
-        productRequest.getSizeDetailRequests().forEach(sizeDetailRequest -> {
-            SizeDetail sizeDetail = new SizeDetail();
-            Size size = sizeRepository.findByNameSize(sizeDetailRequest.getSizeRequest().getNameSize())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Size not found"));
-            sizeDetail.setSize(size);
-            sizeDetail.setProduct(product);
-            sizeDetail.setQuantity(sizeDetailRequest.getQuantity());
-            sizeDetails.add(sizeDetail);
-        });
 
-        int quantity = sizeDetails.stream().mapToInt(SizeDetail::getQuantity).sum();
+        productRequest.getSizeDetailRequests()
+                .forEach(sizeDetailRequest -> {
+
+                    SizeDetail sizeDetail = new SizeDetail();
+
+                    Size size = sizeRepository.findByNameSize(
+                                    sizeDetailRequest.getSizeRequest().getNameSize())
+                            .orElseThrow(() ->
+                                    new ResponseStatusException(
+                                            HttpStatus.NOT_FOUND,
+                                            "Size not found"));
+
+                    sizeDetail.setSize(size);
+                    sizeDetail.setProduct(product);
+                    sizeDetail.setQuantity(sizeDetailRequest.getQuantity());
+
+                    sizeDetails.add(sizeDetail);
+                });
+
+        int quantity = sizeDetails.stream()
+                .mapToInt(SizeDetail::getQuantity)
+                .sum();
+
         double costPrice = productRequest.getPrice()
-                - (productRequest.getPrice() * productRequest.getDiscountAmount() / 100);
+                - (productRequest.getPrice()
+                * productRequest.getDiscountAmount() / 100);
 
         product.setCostPrice(costPrice);
         product.setRating(0.0);
@@ -157,20 +216,39 @@ public class ProductService {
         product.setCategory(category);
         product.setBrand("HK3T");
         product.setStatus(Status.ACTIVE);
+
         product.setCreatedAt(Date.from(LocalDate.now()
-                .atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant()));
+                .atStartOfDay()
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant()));
+
         product.setUpdatedAt(Date.from(LocalDate.now()
-                .atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant()));
+                .atStartOfDay()
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant()));
 
         Product savedProduct = productRepository.save(product);
+
         return convertToProductResponse(savedProduct, 0L);
     }
 
     // ==================== UPDATE ====================
 
-    public ProductResponse updateProduct(int id, ProductRequest productRequest) {
+    @Caching(evict = {
+            @CacheEvict(value = "allProducts", allEntries = true),
+            @CacheEvict(value = "productsByIds", allEntries = true),
+            @CacheEvict(value = "product", key = "#id")
+    })
+    public ProductResponse updateProduct(int id,
+                                         ProductRequest productRequest) {
+
+        System.out.println("UPDATE PRODUCT -> CLEAR REDIS CACHE");
+
         Product existingProduct = productRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Product not found"));
 
         existingProduct.setName(productRequest.getName());
         existingProduct.setDescription(productRequest.getDescription());
@@ -183,42 +261,75 @@ public class ProductService {
         existingProduct.setForm(productRequest.getForm());
         existingProduct.setStatus(Status.ACTIVE);
 
-        Category category = categoryRepository.findByName(productRequest.getCategoryRequest().getName())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+        Category category = categoryRepository.findByName(
+                        productRequest.getCategoryRequest().getName())
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Category not found"));
+
         existingProduct.setCategory(category);
 
         List<SizeDetail> sizeDetails = existingProduct.getSizeDetails();
-        List<SizeDetailRequest> requestedSizeDetails = productRequest.getSizeDetailRequests();
+
+        List<SizeDetailRequest> requestedSizeDetails =
+                productRequest.getSizeDetailRequests();
+
         for (SizeDetail sd : sizeDetails) {
+
             for (SizeDetailRequest sdr : requestedSizeDetails) {
-                if (sd.getSize().getNameSize().equals(sdr.getSizeRequest().getNameSize())) {
+
+                if (sd.getSize().getNameSize()
+                        .equals(sdr.getSizeRequest().getNameSize())) {
+
                     sd.setQuantity(sdr.getQuantity());
                     break;
                 }
             }
         }
 
-        int quantity = sizeDetails.stream().mapToInt(SizeDetail::getQuantity).sum();
+        int quantity = sizeDetails.stream()
+                .mapToInt(SizeDetail::getQuantity)
+                .sum();
+
         double costPrice = productRequest.getPrice()
-                - (productRequest.getPrice() * productRequest.getDiscountAmount() / 100);
+                - (productRequest.getPrice()
+                * productRequest.getDiscountAmount() / 100);
 
         existingProduct.setCostPrice(costPrice);
         existingProduct.setQuantity(quantity);
         existingProduct.setSizeDetails(sizeDetails);
         existingProduct.setBrand("HK3T");
+
         existingProduct.setUpdatedAt(Date.from(LocalDate.now()
-                .atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant()));
+                .atStartOfDay()
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant()));
 
         Product updatedProduct = productRepository.save(existingProduct);
+
         return convertToProductResponse(updatedProduct, 0L);
     }
 
     // ==================== DELETE ====================
 
+    @Caching(evict = {
+            @CacheEvict(value = "allProducts", allEntries = true),
+            @CacheEvict(value = "productsByIds", allEntries = true),
+            @CacheEvict(value = "product", key = "#id")
+    })
     public void deleteProduct(int id) {
+
+        System.out.println("DELETE PRODUCT -> CLEAR REDIS CACHE");
+
         Product existingProduct = productRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Product not found"));
+
         existingProduct.setStatus(Status.INACTIVE);
+
         productRepository.save(existingProduct);
     }
 
@@ -232,15 +343,49 @@ public class ProductService {
     // Gọi order-service để lấy top trending
     // Nếu order-service chưa có → trả về list rỗng, không crash
 
+    @Cacheable(value = "topTrending", key = "#type")
     public List<TopProductResponse> getTopTrending(String type) {
+
+        System.out.println("GET TOP TRENDING FROM MYSQL");
+
         try {
-            TopProductResponse[] response = restTemplate.getForObject(
-                    ORDER_SERVICE_URL + "/order-details/top-trending?type=" + type,
-                    TopProductResponse[].class
+
+            Map[] rawList = restTemplate.getForObject(
+                    ORDER_SERVICE_URL +
+                            "/order-details/top-trending?type=" + type,
+                    Map[].class
             );
-            return response != null ? Arrays.asList(response) : new ArrayList<>();
+
+            if (rawList == null) {
+                return new ArrayList<>();
+            }
+
+            List<TopProductResponse> result = new ArrayList<>();
+
+            for (Map raw : rawList) {
+
+                Integer productId = (Integer) raw.get("productId");
+
+                Product p = productRepository.findById(productId)
+                        .orElse(null);
+
+                if (p == null) continue;
+
+                result.add(new TopProductResponse(
+                        p.getName(),
+                        p.getCategory() != null
+                                ? p.getCategory().getName()
+                                : "Unknown",
+                        ((Number) raw.get("sales")).intValue(),
+                        ((Number) raw.get("revenue")).doubleValue(),
+                        (String) raw.get("trend"),
+                        p.getImageUrlFront()
+                ));
+            }
+
+            return result;
+
         } catch (Exception e) {
-            // order-service chưa chạy → trả về rỗng
             return new ArrayList<>();
         }
     }

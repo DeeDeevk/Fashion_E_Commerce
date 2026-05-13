@@ -19,10 +19,10 @@ public interface OrderDetailRepository extends JpaRepository<OrderDetail, Intege
     List<Object[]> findSoldQuantityByProductId();
 
     // Hoặc nếu muốn map trực tiếp
-    @Query("SELECT od.product.id, COALESCE(SUM(od.quantity), 0) " +
+    // Chỉ SELECT SUM, bỏ SELECT od.product.id
+    @Query("SELECT COALESCE(SUM(od.quantity), 0) " +
             "FROM OrderDetail od " +
-            "WHERE od.product.id = :productId " +
-            "GROUP BY od.product.id")
+            "WHERE od.product.id = :productId")
     Long findSoldQuantityByProductId(@Param("productId") Integer productId);
 
     @Query("""
