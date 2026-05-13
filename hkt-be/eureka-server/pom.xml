@@ -11,7 +11,7 @@
     <groupId>fit.iuh</groupId>
     <artifactId>eureka-server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <packaging>war</packaging>
+    <packaging>jar</packaging>
     <name>eureka-server</name>
     <description>eureka-server</description>
     <url/>
@@ -65,10 +65,18 @@
     </dependencyManagement>
 
     <build>
+        <finalName>eureka-server</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

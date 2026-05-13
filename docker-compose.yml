@@ -1,0 +1,171 @@
+services:
+  # 1. Database MariaDB
+  mariadb:
+    image: mariadb:11
+    container_name: hkt-mariadb
+    ports:
+      - "3006:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: hkt_shop
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./init_db/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    networks:
+      - hkt-network
+
+  # 2. Eureka Server (Discovery)
+  eureka-server:
+    build: ./hkt-be/eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - hkt-network
+
+  # 3. API Gateway
+  api-gateway:
+    build: ./hkt-be/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eureka-server
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_IP_ADDRESS=api-gateway
+    networks:
+      - hkt-network
+
+  # 4. Product Service (Port 8083)
+  product-service:
+    build: ./hkt-be/product-service
+    container_name: product-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - mariadb
+      - eureka-server
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_IP_ADDRESS=product-service
+    networks:
+      - hkt-network
+
+  # 5. Wishlist Service (Port 8082)
+  wishlist-service:
+    build: ./hkt-be/wishlist-service
+    container_name: wishlist-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - mariadb
+      - eureka-server
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_IP_ADDRESS=wishlist-service
+    networks:
+      - hkt-network
+
+  # 6. Cart Service (Port 8084)
+  cart-service:
+    build: ./hkt-be/cart-service
+    container_name: cart-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - mariadb
+      - eureka-server
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_IP_ADDRESS=cart-service
+    networks:
+      - hkt-network
+
+  # 7. Order Service (Port 8085)
+  order-service:
+    build: ./hkt-be/order-service
+    container_name: order-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      - mariadb
+      - eureka-server
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_IP_ADDRESS=order-service
+    networks:
+      - hkt-network
+
+  # 8. User Service (Node.js - Port 3000)
+  user-service:
+    build: ./hkt-be/user-service
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./hkt-be/user-service:/app
+      - /app/node_modules
+    depends_on:
+      - mariadb
+      - eureka-server
+    environment:
+      - PORT=8081
+      - DB_HOST=mariadb # Đổi localhost thành tên service mariadb
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASS=root
+      - DB_NAME=hkt_shop
+      - EUREKA_HOST=eureka-server # Đổi localhost thành tên service eureka-server
+      - EUREKA_PORT=8761
+      - APP_NAME=user-service
+      - JWT_SECRET=c8e09fddda9e192d16c485affabc61c9f4bca77a60c19d448f3a6e8475b9f0a4e0d1f69bca8d21f1123b8f0f8a0b8d12
+      - JWT_ALGORITHM=HS512
+      - EUREKA_INSTANCE_IP_ADDRESS=user-service
+    networks:
+      - hkt-network
+    restart: always # Thêm dòng này để nếu lỗi nó tự khởi động lại đến khi được thì thôi
+
+  # 9. Frontend (Vite)
+  frontend:
+    build: ./hkt-fe
+    container_name: hkt-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./hkt-fe:/app
+      - /app/node_modules
+    depends_on:
+      - api-gateway
+    networks:
+      - hkt-network
+
+  # 10. Admin Service (Port 8086)
+  admin-service:
+    build: ./hkt-be/admin-service
+    container_name: admin-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      - mariadb
+      - eureka-server
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_IP_ADDRESS=admin-service
+      - GEMINI_API_KEY=AIzaSyDU5B_gCzfGTlVLtlW-BOq3edCW4UnJ8eY
+    networks:
+      - hkt-network
+
+networks:
+  hkt-network:
+    driver: bridge
+
+volumes:
+  mariadb_data:

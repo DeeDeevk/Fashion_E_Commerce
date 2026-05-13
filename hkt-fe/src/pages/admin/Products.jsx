@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from "react";
 import {
-  FaPlus, FaEdit, FaTrash, FaUpload, FaDownload, FaImage, FaEye,
-  FaSearch, FaFilter, FaSortAmountDown
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaUpload,
+  FaDownload,
+  FaImage,
+  FaEye,
+  FaSearch,
+  FaFilter,
+  FaSortAmountDown,
 } from "react-icons/fa";
-import AdminChatBot from '../../components/AdminChatBot';
-export default function Products({ initialFilter = 'ALL' }) {
-
+import AdminChatBot from "../../components/AdminChatBot";
+export default function Products({ initialFilter = "ALL" }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -14,12 +21,11 @@ export default function Products({ initialFilter = 'ALL' }) {
   const [detailProduct, setDetailProduct] = useState(null);
   const [filterStock, setFilterStock] = useState("ALL");
 
-
   // === STATE MỚI CHO FILTER & SEARCH ===
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("ALL"); // Lọc theo danh mục
-  const [filterStatus, setFilterStatus] = useState("ALL");     // Lọc theo trạng thái
-  const [sortOption, setSortOption] = useState("newest");      // Sắp xếp
+  const [filterStatus, setFilterStatus] = useState("ALL"); // Lọc theo trạng thái
+  const [sortOption, setSortOption] = useState("newest"); // Sắp xếp
 
   const [formData, setFormData] = useState({
     name: "",
@@ -35,17 +41,17 @@ export default function Products({ initialFilter = 'ALL' }) {
     imageUrlFront: "",
     imageUrlBack: "",
     status: "",
-    sizeDetails: []
+    sizeDetails: [],
   });
   useEffect(() => {
     console.log("Check initialFilter:", initialFilter); // Xem nó in ra gì?
 
-    if (initialFilter === 'LOW_STOCK') {
+    if (initialFilter === "LOW_STOCK") {
       console.log("Đã set LOW");
-      setFilterStock('LOW');
+      setFilterStock("LOW");
     } else {
       console.log("Đã set ALL");
-      setFilterStock('ALL');
+      setFilterStock("ALL");
     }
   }, [initialFilter]);
 
@@ -57,7 +63,13 @@ export default function Products({ initialFilter = 'ALL' }) {
 
   const loadProducts = async () => {
     try {
-      const res = await fetch("http://localhost:8080/products");
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch("http://localhost:8080/admin/products", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setProducts(data?.result || []);
@@ -68,7 +80,13 @@ export default function Products({ initialFilter = 'ALL' }) {
 
   const loadCategories = async () => {
     try {
-      const res = await fetch("http://localhost:8080/categories");
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch("http://localhost:8080/admin/categories", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setCategories(data?.result || []);
@@ -85,44 +103,43 @@ export default function Products({ initialFilter = 'ALL' }) {
 
   const openAddModal = () => {
     setEditingProduct(null);
-    setFormData(
-      {
-        name: "",
-        description: "",      // Mới
-        categoryId: "",       // Để map với category.id
-        price: 0,
-        costPrice: 0,         // Mới
-        discountAmount: 0,    // Thay cho 'discount'
-        quantity: 0,
-        unit: "Cái",          // Mới
-        material: "",         // Mới
-        form: "",             // Mới
-        imageUrlFront: "",    // Thay cho mảng images
-        imageUrlBack: "",     // Thay cho mảng images
-        sizeDetails: [{
-          "id": 1,
-          "nameSize": "S",
-          "quantity": 0
+    setFormData({
+      name: "",
+      description: "", // Mới
+      categoryId: "", // Để map với category.id
+      price: 0,
+      costPrice: 0, // Mới
+      discountAmount: 0, // Thay cho 'discount'
+      quantity: 0,
+      unit: "Cái", // Mới
+      material: "", // Mới
+      form: "", // Mới
+      imageUrlFront: "", // Thay cho mảng images
+      imageUrlBack: "", // Thay cho mảng images
+      sizeDetails: [
+        {
+          id: 1,
+          nameSize: "S",
+          quantity: 0,
         },
         {
-          "id": 2,
-          "nameSize": "M",
-          "quantity": 0
+          id: 2,
+          nameSize: "M",
+          quantity: 0,
         },
         {
-          "id": 3,
-          "nameSize": "L",
-          "quantity": 0
+          id: 3,
+          nameSize: "L",
+          quantity: 0,
         },
         {
-          "id": 4,
-          "nameSize": "XL",
-          "quantity": 0
-        }]
-      }
-    );
+          id: 4,
+          nameSize: "XL",
+          quantity: 0,
+        },
+      ],
+    });
     setShowModal(true);
-
   };
 
   const openEditModal = (product) => {
@@ -135,10 +152,10 @@ export default function Products({ initialFilter = 'ALL' }) {
     // API trả về: [{ quantity: 20, sizeName: "M" }, ...] (hoặc cấu trúc tương tự)
     // Form cần: [{ nameSize: "M", quantity: 20 }] để dễ hiển thị trên input
     const mappedSizes = product.sizeDetails
-      ? product.sizeDetails.map(s => ({
-        nameSize: s.sizeName || s.sizeRequest?.nameSize || "",
-        quantity: s.quantity
-      }))
+      ? product.sizeDetails.map((s) => ({
+          nameSize: s.sizeName || s.sizeRequest?.nameSize || "",
+          quantity: s.quantity,
+        }))
       : [];
 
     setFormData({
@@ -157,16 +174,15 @@ export default function Products({ initialFilter = 'ALL' }) {
       quantity: product.quantity, // Tổng tồn kho
 
       // Lưu vào state dùng cho việc render input
-      sizeDetails: mappedSizes
+      sizeDetails: mappedSizes,
     });
     setShowModal(true);
-
   };
 
   const updateSizeDetail = (index, field, value) => {
     const newSizes = [...formData.sizeDetails];
     newSizes[index][field] = value;
-    setFormData(prev => ({ ...prev, sizeDetails: newSizes }));
+    setFormData((prev) => ({ ...prev, sizeDetails: newSizes }));
   };
 
   const saveProduct = async () => {
@@ -179,29 +195,33 @@ export default function Products({ initialFilter = 'ALL' }) {
     // 2. Chuẩn bị URL và Method
     const method = editingProduct ? "PUT" : "POST";
     const url = editingProduct
-      ? `http://localhost:8080/products/${editingProduct.id}`
-      : "http://localhost:8080/products";
+      ? `http://localhost:8080/admin/products/${editingProduct.id}`
+      : "http://localhost:8080/admin/products";
 
     // 3. Xử lý Category Request
     // Tìm object category gốc từ list 'categories' dựa trên ID đang chọn trong form
-    const selectedCategory = categories.find(c => c.id == formData.categoryId);
+    const selectedCategory = categories.find(
+      (c) => c.id == formData.categoryId,
+    );
 
     // Tạo object categoryRequest theo đúng mẫu JSON yêu cầu
-    const categoryRequestData = selectedCategory ? {
-      name: selectedCategory.name,
-      description: selectedCategory.description || "",
-      imageUrl: selectedCategory.imageUrl || "",
-      display_order: selectedCategory.display_order || 1,
-      isActive: true
-    } : null;
+    const categoryRequestData = selectedCategory
+      ? {
+          name: selectedCategory.name,
+          description: selectedCategory.description || "",
+          imageUrl: selectedCategory.imageUrl || "",
+          display_order: selectedCategory.display_order || 1,
+          isActive: true,
+        }
+      : null;
 
     // 4. Xử lý SizeDetailRequests
     // Map từ state đơn giản của form sang cấu trúc lồng nhau của API
-    const sizeDetailRequestsData = formData.sizeDetails.map(item => ({
+    const sizeDetailRequestsData = formData.sizeDetails.map((item) => ({
       quantity: Number(item.quantity),
       sizeRequest: {
-        nameSize: item.nameSize // Lấy tên size từ input form
-      }
+        nameSize: item.nameSize, // Lấy tên size từ input form
+      },
     }));
 
     // 5. Tạo Payload cuối cùng
@@ -224,7 +244,7 @@ export default function Products({ initialFilter = 'ALL' }) {
 
       // Object lồng nhau theo yêu cầu
       categoryRequest: categoryRequestData,
-      sizeDetailRequests: sizeDetailRequestsData
+      sizeDetailRequests: sizeDetailRequestsData,
     };
 
     try {
@@ -232,7 +252,7 @@ export default function Products({ initialFilter = 'ALL' }) {
         method,
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // <--- Thêm Token vào Header
+          Authorization: `Bearer ${token}`, // <--- Thêm Token vào Header
         },
         body: JSON.stringify(payload),
       });
@@ -248,11 +268,7 @@ export default function Products({ initialFilter = 'ALL' }) {
       console.error("Lỗi kết nối:", error);
       alert("Lỗi kết nối đến server");
     }
-
   };
-
-
-
 
   // ===============================
   // Delete Product
@@ -260,21 +276,23 @@ export default function Products({ initialFilter = 'ALL' }) {
   const deleteProduct = async (id) => {
     const token = localStorage.getItem("accessToken");
     if (!window.confirm("Bạn có chắc muốn xóa?")) return;
-    await fetch(`http://localhost:8080/products/${id}`, {
+    await fetch(`http://localhost:8080/admin/products/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
     loadProducts();
   };
-  const handleImport = (e) => { /* ... */ };
+  const handleImport = (e) => {
+    /* ... */
+  };
   const handleExport = () => {
     const csv = [
       ["id", "name", "price", "quantity"],
-      ...products.map((p) => [p.id, p.name, p.price, p.quantity])
+      ...products.map((p) => [p.id, p.name, p.price, p.quantity]),
     ]
       .map((row) => row.join(","))
       .join("\n");
@@ -293,13 +311,16 @@ export default function Products({ initialFilter = 'ALL' }) {
 
   const getCategoryColor = (categoryName) => {
     switch (categoryName) {
-      case "Bottom": return "bg-blue-100 text-blue-800";
-      case "Accessories": return "bg-purple-100 text-purple-800";
-      case "Top": return "bg-yellow-100 text-yellow-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "Bottom":
+        return "bg-blue-100 text-blue-800";
+      case "Accessories":
+        return "bg-purple-100 text-purple-800";
+      case "Top":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
-
 
   // ===============================
   // LOGIC LỌC VÀ SẮP XẾP (MỚI)
@@ -308,13 +329,11 @@ export default function Products({ initialFilter = 'ALL' }) {
     .filter((product) => {
       // 1. Lọc theo danh mục (Category)
       const matchesCategory =
-        filterCategory === "ALL" ||
-        product.category?.name === filterCategory;
+        filterCategory === "ALL" || product.category?.name === filterCategory;
 
       // 2. Lọc theo trạng thái (Status)
       const matchesStatus =
-        filterStatus === "ALL" ||
-        product.status === filterStatus;
+        filterStatus === "ALL" || product.status === filterStatus;
 
       // 3. Tìm kiếm theo tên (Search)
       const matchesSearch = product.name
@@ -323,7 +342,7 @@ export default function Products({ initialFilter = 'ALL' }) {
 
       // 👇👇👇 4. THÊM PHẦN NÀY: LỌC TỒN KHO 👇👇👇
       let matchesStock = true;
-      if (filterStock === 'LOW') {
+      if (filterStock === "LOW") {
         // Chỉ lấy sản phẩm có số lượng <= 10
         matchesStock = product.quantity <= 10;
       }
@@ -347,11 +366,9 @@ export default function Products({ initialFilter = 'ALL' }) {
       }
     });
 
-
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-
         {/* === HEADER === */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -359,16 +376,23 @@ export default function Products({ initialFilter = 'ALL' }) {
               <h1 className="text-4xl font-bold bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 Product Management
               </h1>
-              <p className="text-gray-500 mt-1">Management And Follow Products Of Store</p>
+              <p className="text-gray-500 mt-1">
+                Management And Follow Products Of Store
+              </p>
             </div>
 
             <div className="flex gap-3 flex-wrap">
-
-              <button onClick={handleExport} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all">
+              <button
+                onClick={handleExport}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all"
+              >
                 <FaDownload /> <span className="font-medium">Export</span>
               </button>
 
-              <button onClick={openAddModal} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all">
+              <button
+                onClick={openAddModal}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all"
+              >
                 <FaPlus /> <span className="font-medium">Thêm Mới</span>
               </button>
             </div>
@@ -378,7 +402,6 @@ export default function Products({ initialFilter = 'ALL' }) {
         {/* === TOOLBAR FILTER & SEARCH (MỚI) === */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-
             {/* Search Input */}
             <div className="relative col-span-1 md:col-span-1">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -439,7 +462,6 @@ export default function Products({ initialFilter = 'ALL' }) {
                 <option value="stock-desc">The most stock</option>
               </select>
             </div>
-
           </div>
         </div>
 
@@ -449,12 +471,24 @@ export default function Products({ initialFilter = 'ALL' }) {
             <table className="w-full">
               <thead className="bg-linear-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Product Name</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Category</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Price (VNĐ)</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Stock Qty</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Status</th>
-                  <th className="px-6 py-4 text-right text-sm font-bold text-gray-700 uppercase">Actions</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">
+                    Product Name
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">
+                    Category
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">
+                    Price (VNĐ)
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">
+                    Stock Qty
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-right text-sm font-bold text-gray-700 uppercase">
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
@@ -462,30 +496,42 @@ export default function Products({ initialFilter = 'ALL' }) {
                 {/* LƯU Ý: Dùng filteredProducts thay vì products */}
                 {filteredProducts.length > 0 ? (
                   filteredProducts.map((p) => (
-                    <tr key={p.id} className="hover:bg-blue-50/50 transition-colors duration-200">
-
+                    <tr
+                      key={p.id}
+                      className="hover:bg-blue-50/50 transition-colors duration-200"
+                    >
                       {/* Name */}
                       <td className="px-6 py-4">
-                        <span className="font-semibold text-gray-900">{p.name}</span>
+                        <span className="font-semibold text-gray-900">
+                          {p.name}
+                        </span>
                         {/* Hiển thị thêm mô tả ngắn nếu muốn */}
-                        <div className="text-xs text-gray-400 truncate max-w-[150px]">{p.description}</div>
+                        <div className="text-xs text-gray-400 truncate max-w-[150px]">
+                          {p.description}
+                        </div>
                       </td>
 
                       {/* Category */}
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getCategoryColor(p.category?.name)}`}>
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getCategoryColor(p.category?.name)}`}
+                        >
                           {p.category?.name}
                         </span>
                       </td>
 
                       {/* Price */}
                       <td className="px-6 py-4">
-                        <span className="font-semibold text-green-600">{p.price.toLocaleString()} đ</span>
+                        <span className="font-semibold text-green-600">
+                          {p.price.toLocaleString()} đ
+                        </span>
                       </td>
 
                       {/* Stock */}
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${p.quantity > 0 ? 'bg-gray-100 text-gray-800' : 'bg-red-100 text-red-800'}`}>
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${p.quantity > 0 ? "bg-gray-100 text-gray-800" : "bg-red-100 text-red-800"}`}
+                        >
                           {p.quantity > 0 ? p.quantity : "Hết hàng"}
                         </span>
                       </td>
@@ -494,11 +540,13 @@ export default function Products({ initialFilter = 'ALL' }) {
                       <td className="px-6 py-4">
                         {p.status === "ACTIVE" ? (
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                            <span className="w-1.5 h-1.5 bg-green-600 rounded-full mr-2"></span> ACTIVE
+                            <span className="w-1.5 h-1.5 bg-green-600 rounded-full mr-2"></span>{" "}
+                            ACTIVE
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                            <span className="w-1.5 h-1.5 bg-red-600 rounded-full mr-2"></span> INACTIVE
+                            <span className="w-1.5 h-1.5 bg-red-600 rounded-full mr-2"></span>{" "}
+                            INACTIVE
                           </span>
                         )}
                       </td>
@@ -506,13 +554,25 @@ export default function Products({ initialFilter = 'ALL' }) {
                       {/* Actions */}
                       <td className="px-6 py-4">
                         <div className="flex gap-2 justify-end">
-                          <button onClick={() => openDetailModal(p)} className="text-gray-600 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-all" title="Xem chi tiết">
+                          <button
+                            onClick={() => openDetailModal(p)}
+                            className="text-gray-600 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-all"
+                            title="Xem chi tiết"
+                          >
                             <FaEye />
                           </button>
-                          <button onClick={() => openEditModal(p)} className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-all" title="Chỉnh sửa">
+                          <button
+                            onClick={() => openEditModal(p)}
+                            className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-all"
+                            title="Chỉnh sửa"
+                          >
                             <FaEdit />
                           </button>
-                          <button onClick={() => deleteProduct(p.id)} className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-all" title="Xóa">
+                          <button
+                            onClick={() => deleteProduct(p.id)}
+                            className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-all"
+                            title="Xóa"
+                          >
                             <FaTrash />
                           </button>
                         </div>
@@ -521,7 +581,10 @@ export default function Products({ initialFilter = 'ALL' }) {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
+                    <td
+                      colSpan="6"
+                      className="px-6 py-10 text-center text-gray-500"
+                    >
                       <div className="flex flex-col items-center justify-center">
                         <FaSearch className="text-4xl text-gray-300 mb-3" />
                         <p>Không tìm thấy sản phẩm nào phù hợp.</p>
@@ -538,12 +601,15 @@ export default function Products({ initialFilter = 'ALL' }) {
         {showDetailModal && detailProduct && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-50 p-4 animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl relative transform transition-all">
-
               {/* Header Modal */}
               <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-linear-to-r from-blue-50 to-indigo-50 z-10 rounded-t-3xl">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Chi tiết sản phẩm</h2>
-                  <p className="text-sm text-gray-500 mt-1">Thông tin đầy đủ về sản phẩm</p>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Chi tiết sản phẩm
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Thông tin đầy đủ về sản phẩm
+                  </p>
                 </div>
                 <button
                   className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200"
@@ -555,14 +621,18 @@ export default function Products({ initialFilter = 'ALL' }) {
 
               <div className="p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
                   {/* CỘT TRÁI: HÌNH ẢNH */}
                   <div className="space-y-6">
                     <div>
-                      <span className="block text-sm font-semibold text-gray-600 mb-3">Ảnh mặt trước:</span>
+                      <span className="block text-sm font-semibold text-gray-600 mb-3">
+                        Ảnh mặt trước:
+                      </span>
                       <div className="border-2 border-gray-200 rounded-2xl overflow-hidden bg-linear-to-br from-gray-50 to-gray-100 h-80 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow duration-300">
                         <img
-                          src={detailProduct.imageUrlFront || "https://via.placeholder.com/300"}
+                          src={
+                            detailProduct.imageUrlFront ||
+                            "https://via.placeholder.com/300"
+                          }
                           alt="Front"
                           className="max-h-full max-w-full object-contain p-4"
                         />
@@ -571,7 +641,9 @@ export default function Products({ initialFilter = 'ALL' }) {
 
                     {detailProduct.imageUrlBack && (
                       <div>
-                        <span className="block text-sm font-semibold text-gray-600 mb-3">Ảnh mặt sau:</span>
+                        <span className="block text-sm font-semibold text-gray-600 mb-3">
+                          Ảnh mặt sau:
+                        </span>
                         <div className="border-2 border-gray-200 rounded-2xl overflow-hidden bg-linear-to-br from-gray-50 to-gray-100 h-80 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow duration-300">
                           <img
                             src={detailProduct.imageUrlBack}
@@ -586,37 +658,49 @@ export default function Products({ initialFilter = 'ALL' }) {
                   {/* CỘT PHẢI: THÔNG TIN */}
                   <div className="space-y-6">
                     <div>
-                      <h3 className="text-3xl font-bold text-gray-900 mb-2">{detailProduct.name}</h3>
+                      <h3 className="text-3xl font-bold text-gray-900 mb-2">
+                        {detailProduct.name}
+                      </h3>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="bg-linear-to-r from-blue-500 to-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-md">
                           {detailProduct.category?.name || "Chưa phân loại"}
                         </span>
-                        <span className="text-sm text-gray-500 font-medium">ID: #{detailProduct.id}</span>
+                        <span className="text-sm text-gray-500 font-medium">
+                          ID: #{detailProduct.id}
+                        </span>
                       </div>
                     </div>
 
                     <div className="p-5 bg-linear-to-br from-gray-50 to-blue-50 rounded-2xl border border-gray-200 shadow-sm">
                       <div className="grid grid-cols-2 gap-5">
                         <div>
-                          <p className="text-xs text-gray-500 uppercase font-bold mb-1">Giá bán</p>
+                          <p className="text-xs text-gray-500 uppercase font-bold mb-1">
+                            Giá bán
+                          </p>
                           <p className="text-2xl font-bold bg-linear-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
                             {detailProduct.costPrice?.toLocaleString()} đ
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 uppercase font-bold mb-1">Giá gốc</p>
+                          <p className="text-xs text-gray-500 uppercase font-bold mb-1">
+                            Giá gốc
+                          </p>
                           <p className="text-lg font-medium text-gray-500 line-through">
                             {detailProduct.price?.toLocaleString()} đ
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 uppercase font-bold mb-1">Giảm giá</p>
+                          <p className="text-xs text-gray-500 uppercase font-bold mb-1">
+                            Giảm giá
+                          </p>
                           <p className="font-bold text-green-600 text-lg">
                             -{detailProduct.discountAmount?.toLocaleString()} %
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 uppercase font-bold mb-1">Đã bán</p>
+                          <p className="text-xs text-gray-500 uppercase font-bold mb-1">
+                            Đã bán
+                          </p>
                           <p className="font-bold text-gray-800 text-lg">
                             {detailProduct.soldQuantity} {detailProduct.unit}
                           </p>
@@ -631,20 +715,36 @@ export default function Products({ initialFilter = 'ALL' }) {
                       </h4>
                       <ul className="space-y-3 text-sm text-gray-700">
                         <li className="flex items-start gap-2">
-                          <strong className="text-gray-900 min-w-[100px]">Chất liệu:</strong>
-                          <span className="text-gray-600">{detailProduct.material}</span>
+                          <strong className="text-gray-900 min-w-[100px]">
+                            Chất liệu:
+                          </strong>
+                          <span className="text-gray-600">
+                            {detailProduct.material}
+                          </span>
                         </li>
                         <li className="flex items-start gap-2">
-                          <strong className="text-gray-900 min-w-[100px]">Kiểu dáng:</strong>
-                          <span className="text-gray-600">{detailProduct.form || "N/A"}</span>
+                          <strong className="text-gray-900 min-w-[100px]">
+                            Kiểu dáng:
+                          </strong>
+                          <span className="text-gray-600">
+                            {detailProduct.form || "N/A"}
+                          </span>
                         </li>
                         <li className="flex items-start gap-2">
-                          <strong className="text-gray-900 min-w-[100px]">Đánh giá:</strong>
-                          <span className="text-yellow-500 font-semibold">{detailProduct.rating} ⭐</span>
+                          <strong className="text-gray-900 min-w-[100px]">
+                            Đánh giá:
+                          </strong>
+                          <span className="text-yellow-500 font-semibold">
+                            {detailProduct.rating} ⭐
+                          </span>
                         </li>
                         <li className="flex items-start gap-2">
-                          <strong className="text-gray-900 min-w-[100px]">Mô tả:</strong>
-                          <span className="text-gray-600 italic">{detailProduct.description}</span>
+                          <strong className="text-gray-900 min-w-[100px]">
+                            Mô tả:
+                          </strong>
+                          <span className="text-gray-600 italic">
+                            {detailProduct.description}
+                          </span>
                         </li>
                       </ul>
                     </div>
@@ -654,21 +754,33 @@ export default function Products({ initialFilter = 'ALL' }) {
                         <span className="w-1 h-6 bg-linear-to-b from-green-500 to-emerald-500 rounded-full"></span>
                         Chi tiết Size & Tồn kho
                       </h4>
-                      {detailProduct.sizeDetails && detailProduct.sizeDetails.length > 0 ? (
+                      {detailProduct.sizeDetails &&
+                      detailProduct.sizeDetails.length > 0 ? (
                         <div className="grid grid-cols-4 gap-3">
                           {detailProduct.sizeDetails.map((size) => (
-                            <div key={size.id} className="border-2 border-gray-200 rounded-xl p-3 text-center bg-linear-to-br from-white to-gray-50 hover:shadow-md hover:border-blue-300 transition-all duration-200">
-                              <div className="font-bold text-gray-900 text-lg">{size.sizeName}</div>
-                              <div className="text-xs text-gray-500 mt-1">Kho: <span className="font-semibold text-gray-700">{size.quantity}</span></div>
+                            <div
+                              key={size.id}
+                              className="border-2 border-gray-200 rounded-xl p-3 text-center bg-linear-to-br from-white to-gray-50 hover:shadow-md hover:border-blue-300 transition-all duration-200"
+                            >
+                              <div className="font-bold text-gray-900 text-lg">
+                                {size.sizeName}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Kho:{" "}
+                                <span className="font-semibold text-gray-700">
+                                  {size.quantity}
+                                </span>
+                              </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-gray-500 italic text-center py-4">Không có thông tin size</p>
+                        <p className="text-gray-500 italic text-center py-4">
+                          Không có thông tin size
+                        </p>
                       )}
                     </div>
                   </div>
-
                 </div>
               </div>
 
@@ -689,15 +801,18 @@ export default function Products({ initialFilter = 'ALL' }) {
         {showModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-50 p-4 animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">
-
               {/* HEADER */}
               <div className="p-6 border-b border-gray-100 sticky top-0 bg-linear-to-r from-blue-50 to-indigo-50 z-10 rounded-t-3xl flex justify-between items-center">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">
-                    {editingProduct ? `Chỉnh sửa: ${editingProduct.id}` : "Thêm sản phẩm mới"}
+                    {editingProduct
+                      ? `Chỉnh sửa: ${editingProduct.id}`
+                      : "Thêm sản phẩm mới"}
                   </h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    {editingProduct ? "Cập nhật thông tin sản phẩm" : "Điền thông tin để tạo sản phẩm mới"}
+                    {editingProduct
+                      ? "Cập nhật thông tin sản phẩm"
+                      : "Điền thông tin để tạo sản phẩm mới"}
                   </p>
                 </div>
                 <button
@@ -710,7 +825,6 @@ export default function Products({ initialFilter = 'ALL' }) {
 
               {/* BODY FORM */}
               <div className="p-8 space-y-8 flex-1 overflow-y-auto">
-
                 {/* 1. THÔNG TIN CƠ BẢN */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -719,37 +833,57 @@ export default function Products({ initialFilter = 'ALL' }) {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="col-span-2 md:col-span-1">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Tên sản phẩm</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Tên sản phẩm
+                      </label>
                       <input
                         className="w-full border-2 border-gray-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                         placeholder="VD: Áo thun nam..."
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
                       />
                     </div>
 
                     <div className="col-span-2 md:col-span-1">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Danh mục</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Danh mục
+                      </label>
                       <select
                         className="w-full border-2 border-gray-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 bg-white"
                         value={formData.categoryId}
-                        onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            categoryId: e.target.value,
+                          })
+                        }
                       >
                         <option value="">-- Chọn danh mục --</option>
                         {categories.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
                         ))}
                       </select>
                     </div>
 
                     <div className="col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Mô tả</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Mô tả
+                      </label>
                       <textarea
                         rows={3}
                         className="w-full border-2 border-gray-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                         placeholder="Mô tả chi tiết sản phẩm..."
                         value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            description: e.target.value,
+                          })
+                        }
                       />
                     </div>
                   </div>
@@ -763,30 +897,42 @@ export default function Products({ initialFilter = 'ALL' }) {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Chất liệu</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Chất liệu
+                      </label>
                       <input
                         className="w-full border-2 border-gray-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                         placeholder="VD: Cotton"
                         value={formData.material}
-                        onChange={(e) => setFormData({ ...formData, material: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, material: e.target.value })
+                        }
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Kiểu dáng (Form)</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Kiểu dáng (Form)
+                      </label>
                       <input
                         className="w-full border-2 border-gray-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                         placeholder="VD: Regular Fit"
                         value={formData.form}
-                        onChange={(e) => setFormData({ ...formData, form: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, form: e.target.value })
+                        }
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Đơn vị tính</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Đơn vị tính
+                      </label>
                       <input
                         className="w-full border-2 border-gray-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                         placeholder="VD: Cái"
                         value={formData.unit}
-                        onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, unit: e.target.value })
+                        }
                       />
                     </div>
                   </div>
@@ -800,42 +946,70 @@ export default function Products({ initialFilter = 'ALL' }) {
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                     <div>
-                      <label className="text-xs text-gray-600 font-bold uppercase mb-2 block">Giá vốn (VNĐ)</label>
+                      <label className="text-xs text-gray-600 font-bold uppercase mb-2 block">
+                        Giá vốn (VNĐ)
+                      </label>
                       <input
                         type="number"
                         className="w-full border-2 border-blue-300 p-3 rounded-xl font-semibold text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all duration-200"
                         value={formData.price}
-                        onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            price: Number(e.target.value),
+                          })
+                        }
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-600 font-bold uppercase mb-2 block">Giá bán (VNĐ)</label>
+                      <label className="text-xs text-gray-600 font-bold uppercase mb-2 block">
+                        Giá bán (VNĐ)
+                      </label>
                       <input
                         type="number"
                         className="w-full border-2 border-gray-300 p-3 rounded-xl bg-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all duration-200"
                         value={formData.costPrice}
-                        onChange={(e) => setFormData({ ...formData, costPrice: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            costPrice: Number(e.target.value),
+                          })
+                        }
                         disabled
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-600 font-bold uppercase mb-2 block">Giảm giá (Số tiền)</label>
+                      <label className="text-xs text-gray-600 font-bold uppercase mb-2 block">
+                        Giảm giá (Số tiền)
+                      </label>
                       <input
                         type="number"
                         className="w-full border-2 border-red-300 p-3 rounded-xl text-red-600 font-semibold focus:ring-2 focus:ring-red-500 outline-none transition-all duration-200"
                         value={formData.discountAmount}
-                        onChange={(e) => setFormData({ ...formData, discountAmount: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            discountAmount: Number(e.target.value),
+                          })
+                        }
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-600 font-bold uppercase mb-2 block">Tổng tồn kho</label>
+                      <label className="text-xs text-gray-600 font-bold uppercase mb-2 block">
+                        Tổng tồn kho
+                      </label>
                       <input
                         type="number"
                         className="w-full border-2 border-gray-300 p-3 rounded-xl bg-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all duration-200"
                         value={formData.quantity}
                         readOnly
                         title="Tự động tính tổng từ các size bên dưới (nếu logic yêu cầu) hoặc nhập tay"
-                        onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            quantity: Number(e.target.value),
+                          })
+                        }
                       />
                     </div>
                   </div>
@@ -850,17 +1024,28 @@ export default function Products({ initialFilter = 'ALL' }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Mặt trước */}
                     <div>
-                      <label className="text-sm text-gray-700 font-semibold mb-2 block">URL Mặt trước</label>
+                      <label className="text-sm text-gray-700 font-semibold mb-2 block">
+                        URL Mặt trước
+                      </label>
                       <div className="space-y-3">
                         <input
                           className="w-full border-2 border-gray-200 p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                           placeholder="https://..."
                           value={formData.imageUrlFront}
-                          onChange={(e) => setFormData({ ...formData, imageUrlFront: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              imageUrlFront: e.target.value,
+                            })
+                          }
                         />
                         {formData.imageUrlFront && (
                           <div className="h-32 w-32 border-2 border-gray-300 rounded-xl bg-white p-2 shadow-md hover:shadow-lg transition-shadow duration-200">
-                            <img src={formData.imageUrlFront} alt="Preview" className="w-full h-full object-contain" />
+                            <img
+                              src={formData.imageUrlFront}
+                              alt="Preview"
+                              className="w-full h-full object-contain"
+                            />
                           </div>
                         )}
                       </div>
@@ -868,17 +1053,28 @@ export default function Products({ initialFilter = 'ALL' }) {
 
                     {/* Mặt sau */}
                     <div>
-                      <label className="text-sm text-gray-700 font-semibold mb-2 block">URL Mặt sau</label>
+                      <label className="text-sm text-gray-700 font-semibold mb-2 block">
+                        URL Mặt sau
+                      </label>
                       <div className="space-y-3">
                         <input
                           className="w-full border-2 border-gray-200 p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                           placeholder="https://..."
                           value={formData.imageUrlBack}
-                          onChange={(e) => setFormData({ ...formData, imageUrlBack: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              imageUrlBack: e.target.value,
+                            })
+                          }
                         />
                         {formData.imageUrlBack && (
                           <div className="h-32 w-32 border-2 border-gray-300 rounded-xl bg-white p-2 shadow-md hover:shadow-lg transition-shadow duration-200">
-                            <img src={formData.imageUrlBack} alt="Preview" className="w-full h-full object-contain" />
+                            <img
+                              src={formData.imageUrlBack}
+                              alt="Preview"
+                              className="w-full h-full object-contain"
+                            />
                           </div>
                         )}
                       </div>
@@ -896,35 +1092,53 @@ export default function Products({ initialFilter = 'ALL' }) {
                   </div>
 
                   {formData.sizeDetails.length === 0 && (
-                    <p className="text-sm text-gray-500 italic text-center py-4 bg-white rounded-xl">Chưa có thông tin size nào.</p>
+                    <p className="text-sm text-gray-500 italic text-center py-4 bg-white rounded-xl">
+                      Chưa có thông tin size nào.
+                    </p>
                   )}
 
                   <div className="space-y-3">
                     {formData.sizeDetails.map((item, index) => (
-                      <div key={index} className="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border-2 border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200">
+                      <div
+                        key={index}
+                        className="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border-2 border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                      >
                         <div className="flex-1">
                           <input
                             className="w-full border-b-2 border-gray-300 focus:border-blue-500 outline-none px-3 py-2 text-sm font-medium"
                             placeholder="Tên Size (S, M, L...)"
                             value={item.nameSize}
-                            onChange={(e) => updateSizeDetail(index, "nameSize", e.target.value)}
+                            onChange={(e) =>
+                              updateSizeDetail(
+                                index,
+                                "nameSize",
+                                e.target.value,
+                              )
+                            }
                             disabled
                           />
                         </div>
                         <div className="w-40 flex items-center gap-3">
-                          <span className="text-sm font-semibold text-gray-600">SL:</span>
+                          <span className="text-sm font-semibold text-gray-600">
+                            SL:
+                          </span>
                           <input
                             type="number"
                             className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
                             value={item.quantity}
-                            onChange={(e) => updateSizeDetail(index, "quantity", Number(e.target.value))}
+                            onChange={(e) =>
+                              updateSizeDetail(
+                                index,
+                                "quantity",
+                                Number(e.target.value),
+                              )
+                            }
                           />
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-
               </div>
 
               {/* FOOTER BUTTONS */}
@@ -939,15 +1153,15 @@ export default function Products({ initialFilter = 'ALL' }) {
                   className="px-6 py-3 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 transform hover:-translate-y-0.5"
                   onClick={saveProduct}
                 >
-                  <FaEdit /> {editingProduct ? "Cập nhật sản phẩm" : "Lưu sản phẩm"}
+                  <FaEdit />{" "}
+                  {editingProduct ? "Cập nhật sản phẩm" : "Lưu sản phẩm"}
                 </button>
               </div>
-
             </div>
           </div>
         )}
       </div>
-      <AdminChatBot/>
+      <AdminChatBot />
     </div>
   );
 }

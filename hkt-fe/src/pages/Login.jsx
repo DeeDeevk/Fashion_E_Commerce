@@ -75,13 +75,13 @@ const Login = () => {
         }
         console.error("Login error:", errorData);
         toast.error(
-          `Login failed: ${errorData.message || "Please try again."}`
+          `Login failed: ${errorData.message || "Please try again."}`,
         );
       }
     } catch (error) {
       console.error("Network or unknown error:", error);
       toast.error(
-        "An error occurred. Please check your network connection and try again."
+        "An error occurred. Please check your network connection and try again.",
       );
     }
   };

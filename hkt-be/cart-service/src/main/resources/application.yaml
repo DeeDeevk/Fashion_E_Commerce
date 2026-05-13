@@ -6,7 +6,7 @@ spring:
     name: cart-service
 
   datasource:
-    url: jdbc:mariadb://localhost:3306/kh3t_shop
+    url: jdbc:mariadb://localhost:3306/hkt_shop
     username: root
     password: root
     driver-class-name: org.mariadb.jdbc.Driver

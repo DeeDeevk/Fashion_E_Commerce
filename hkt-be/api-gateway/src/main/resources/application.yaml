@@ -18,19 +18,28 @@ spring:
             - Path=/products/**,/categories/**,/sizes/**,/size-details/**
 
         - id: wishlist-service-route
-          uri: lb://WISHLIST-SERVICE
+          uri: lb://wishlist-service
           predicates:
             - Path=/wishlists/**
 
         - id: user-service-route
-          uri: lb://USER-SERVICE
+          uri: lb://user-service
           predicates:
             - Path=/users/**,/auth/**,/accounts/**
 
         - id: cart-service-route
-          uri: lb://CART-SERVICE
+          uri: lb://cart-service
           predicates:
             - Path=/carts/**,/cart-details/**
+
+        - id: order-service-route
+          uri: lb://order-service
+          predicates:
+            - Path=/orders/**,/order-details/**,/customers/**,/addresses/**,/customer-trading/**,/invoices/**,/api/v1/**
+        - id: admin-service-route
+          uri: lb://admin-service
+          predicates:
+            - Path=/admin/**
 
       globalcors:
         add-to-simple-url-handler-mapping: true
