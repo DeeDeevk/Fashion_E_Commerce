@@ -1,0 +1,11 @@
+# docker-compose.yml
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"   # REST API (dashboard)
+      - "6334:6334"   # gRPC (Java client dùng cái này)
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+    restart: unless-stopped
