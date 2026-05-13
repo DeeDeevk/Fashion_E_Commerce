@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 
@@ -13,7 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ProductResponse {
+public class ProductResponse implements Serializable {
 
     private int id;
     private String name;
@@ -39,7 +40,7 @@ public class ProductResponse {
     // THÊM: Inner class cho SizeDetail DTO
     @Data
     @Builder
-    public static class SizeDetailResponse {
+    public static class SizeDetailResponse implements Serializable {
         private int id;
         private String sizeName; // Từ Size.nameSize
         private int quantity; // Số lượng còn lại cho size này

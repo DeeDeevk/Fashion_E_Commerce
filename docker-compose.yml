@@ -162,10 +162,78 @@ services:
       - GEMINI_API_KEY=AIzaSyDU5B_gCzfGTlVLtlW-BOq3edCW4UnJ8eY
     networks:
       - hkt-network
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    networks:
+      - hkt-network
 
+  # 12. Chat Service (Port 8087)
+  chat-service:
+    build: ./hkt-be/chat-service
+    container_name: chat-service
+    ports:
+      - "8087:8087"
+    depends_on:
+      - mariadb
+      - eureka-server
+      - qdrant
+      - ollama
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_IP_ADDRESS=chat-service
+      - GROQ_API_KEY=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
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6334
+      - OLLAMA_URL=http://ollama:11434
+    networks:
+      - hkt-network
+    restart: on-failure
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - hkt-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+    restart: unless-stopped
+
+    volumes:
+      - redis_data:/data
+
+    command: redis-server --appendonly yes
+
+    networks:
+      - hkt-network
 networks:
   hkt-network:
     driver: bridge
 
 volumes:
   mariadb_data:
+  ollama_data:
+  redis_data:
