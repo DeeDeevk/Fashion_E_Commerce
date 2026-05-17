@@ -33,7 +33,7 @@ eureka:
 # GROQ AI
 groq:
   api:
-    key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    key: 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
     url: https://api.groq.com/openai/v1
 
   model: llama-3.3-70b-versatile

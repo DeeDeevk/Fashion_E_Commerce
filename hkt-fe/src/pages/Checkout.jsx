@@ -187,7 +187,7 @@ const Checkout = () => {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(requestBody),
-          }
+          },
         );
 
         if (!res.ok) throw new Error("Failed to create order");
@@ -284,9 +284,16 @@ const Checkout = () => {
             throw new Error(err.message || "Failed to create invoice");
           } else {
             const newInvoice = await res.json();
-            navigate(
-              `/payment?orderId=${orderData.id}&amount=${summary.total}&invoiceId=${newInvoice.id}&invoiceCode=${newInvoice.invoiceCode}`
+            sessionStorage.setItem(
+              "paymentInfo",
+              JSON.stringify({
+                orderId: orderData.id,
+                amount: summary.total,
+                invoiceId: newInvoice.id,
+                invoiceCode: newInvoice.invoiceCode,
+              }),
             );
+            navigate(`/payment`);
           }
         } else {
           navigate("/");
@@ -335,7 +342,7 @@ const Checkout = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
       const data = await resAddress.json();
       setAddresses(data);

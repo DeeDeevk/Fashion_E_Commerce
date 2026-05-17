@@ -1,0 +1,101 @@
+# =========================
+# ENVIRONMENT VARIABLES
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# NODEJS
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build
+dist/
+build/
+
+# =========================
+# JAVA / SPRING BOOT
+# =========================
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+
+# =========================
+# IDE
+# =========================
+
+# IntelliJ
+.idea/
+*.iml
+
+# VSCode
+.vscode/
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# =========================
+# OS FILES
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# LOGS
+# =========================
+logs/
+*.log
+
+# =========================
+# DOCKER / VOLUMES / DATA
+# =========================
+
+# Ollama
+ollama_data/
+
+# Qdrant
+qdrant_data/
+
+# Redis
+redis_data/
+
+# MariaDB local volume
+mariadb_data/
+
+# Docker override
+docker-compose.override.yml
+
+# =========================
+# TEMP FILES
+# =========================
+tmp/
+temp/
+
+# =========================
+# FRONTEND CACHE
+# =========================
+.cache/
+.vite/
+
+# =========================
+# TEST / COVERAGE
+# =========================
+coverage/
+
+# =========================
+# MAC / LINUX
+# =========================
+*.swp
+*.swo
