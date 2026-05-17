@@ -6,8 +6,8 @@ services:
     ports:
       - "3006:3306"
     environment:
-      MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: hkt_shop
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./init_db/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
@@ -32,8 +32,8 @@ services:
     depends_on:
       - eureka-server
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_IP_ADDRESS=api-gateway
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      EUREKA_INSTANCE_IP_ADDRESS: ${API_GATEWAY}
     networks:
       - hkt-network
 
@@ -47,9 +47,9 @@ services:
       - mariadb
       - eureka-server
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_IP_ADDRESS=product-service
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      EUREKA_INSTANCE_IP_ADDRESS: ${PRODUCT_SERVICE}
     networks:
       - hkt-network
 
@@ -63,9 +63,9 @@ services:
       - mariadb
       - eureka-server
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_IP_ADDRESS=wishlist-service
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      EUREKA_INSTANCE_IP_ADDRESS: ${WISHLIST_SERVICE}
     networks:
       - hkt-network
 
@@ -79,9 +79,9 @@ services:
       - mariadb
       - eureka-server
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_IP_ADDRESS=cart-service
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      EUREKA_INSTANCE_IP_ADDRESS: ${CART_SERVICE}
     networks:
       - hkt-network
 
@@ -95,9 +95,9 @@ services:
       - mariadb
       - eureka-server
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_IP_ADDRESS=order-service
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      EUREKA_INSTANCE_IP_ADDRESS: ${ORDER_SERVICE}
     networks:
       - hkt-network
 
@@ -114,22 +114,21 @@ services:
       - mariadb
       - eureka-server
     environment:
-      - PORT=8081
-      - DB_HOST=mariadb # Đổi localhost thành tên service mariadb
-      - DB_PORT=3306
-      - DB_USER=root
-      - DB_PASS=root
-      - DB_NAME=hkt_shop
-      - EUREKA_HOST=eureka-server # Đổi localhost thành tên service eureka-server
-      - EUREKA_PORT=8761
-      - APP_NAME=user-service
-      - JWT_SECRET=c8e09fddda9e192d16c485affabc61c9f4bca77a60c19d448f3a6e8475b9f0a4e0d1f69bca8d21f1123b8f0f8a0b8d12
-      - JWT_ALGORITHM=HS512
-      - EUREKA_INSTANCE_IP_ADDRESS=user-service
+      PORT: ${USER_PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${MARIADB_ROOT_PASSWORD}
+      DB_PASS: ${MARIADB_ROOT_PASSWORD}
+      DB_NAME: ${MARIADB_DATABASE}
+      EUREKA_HOST: ${EUREKA_HOST}
+      EUREKA_PORT: ${EUREKA_PORT}
+      APP_NAME: ${USER_SERVICE}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      EUREKA_INSTANCE_IP_ADDRESS: ${USER_SERVICE}
     networks:
       - hkt-network
-    restart: always # Thêm dòng này để nếu lỗi nó tự khởi động lại đến khi được thì thôi
-
+    restart: always
   # 9. Frontend (Vite)
   frontend:
     build: ./hkt-fe
@@ -154,12 +153,12 @@ services:
       - mariadb
       - eureka-server
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=root
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_IP_ADDRESS=admin-service
-      - GEMINI_API_KEY=AIzaSyDU5B_gCzfGTlVLtlW-BOq3edCW4UnJ8eY
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${MARIADB_ROOT_PASSWORD}
+      SPRING_DATASOURCE_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      EUREKA_INSTANCE_IP_ADDRESS: ${ADMIN_SERVICE}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     networks:
       - hkt-network
   qdrant:
@@ -186,15 +185,15 @@ services:
       - qdrant
       - ollama
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/hkt_shop
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=root
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_IP_ADDRESS=chat-service
-      - GROQ_API_KEY=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
-      - QDRANT_HOST=qdrant
-      - QDRANT_PORT=6334
-      - OLLAMA_URL=http://ollama:11434
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${MARIADB_ROOT_PASSWORD}
+      SPRING_DATASOURCE_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      EUREKA_INSTANCE_IP_ADDRESS: ${CHAT_SERVICE}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      QDRANT_HOST: ${QDRANT_HOST}
+      QDRANT_PORT: ${QDRANT_PORT}
+      OLLAMA_URL: ${OLLAMA_URL}
     networks:
       - hkt-network
     restart: on-failure

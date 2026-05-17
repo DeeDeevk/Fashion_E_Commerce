@@ -9,10 +9,8 @@ const QrPayment = () => {
   const navigate = useNavigate();
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const orderId = params.get("orderId");
-  const amount = params.get("amount");
-  const invoiceId = params.get("invoiceId");
-  const invoiceCode = params.get("invoiceCode");
+  const paymentInfo = JSON.parse(sessionStorage.getItem("paymentInfo") || "{}");
+  const { orderId, amount, invoiceId, invoiceCode } = paymentInfo;
   const interval = useRef(null);
 
   const qrCode = `https://qr.sepay.vn/img?acc=VQRQAFTEV8402&bank=MBBank&amount=${amount}&des=${invoiceCode}`;
@@ -30,6 +28,7 @@ const QrPayment = () => {
       console.log("new invoice", invoice);
       if (invoice.paymentStatus === "PAID") {
         clearInterval(interval.current);
+        sessionStorage.removeItem("paymentInfo");
         await fetch(`http://localhost:8080/orders/status/${orderId}`, {
           method: "PUT",
           headers: {
@@ -55,6 +54,13 @@ const QrPayment = () => {
     }, 5000);
 
     return () => clearInterval(interval.current);
+  }, []);
+
+  useEffect(() => {
+    if (!invoiceId || !orderId) {
+      toast.error("Phiên thanh toán không hợp lệ!");
+      navigate("/");
+    }
   }, []);
 
   if (isSuccess) {
