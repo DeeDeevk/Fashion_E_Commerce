@@ -1,27 +1,31 @@
-import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from '../config/index.js';
+const { verifyAccessToken } = require("../config/jwt");
 
-export default function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization || req.headers.Authorization;
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid Authorization header' });
+  if (!token) {
+    return res.status(401).json({ code: 1006, message: "Unauthenticated" });
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = {
-      id: decoded.id || decoded.userId || decoded.sub,
-    };
-
-    if (!req.user.id) {
-      throw new Error('Invalid token payload');
-    }
-
-    return next();
+    req.user = verifyAccessToken(token); // ✅ dùng từ jwt.js
+    next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return res
+      .status(401)
+      .json({ code: 1006, message: "Token invalid or expired" });
   }
-}
+};
+
+const requireRole = (...roles) => {
+  return (req, res, next) => {
+    const userRole = req.user?.scope;
+    if (!roles.includes(userRole)) {
+      return res.status(403).json({ code: 1007, message: "Unauthorized" });
+    }
+    next();
+  };
+};
+
+module.exports = { verifyToken, requireRole };
