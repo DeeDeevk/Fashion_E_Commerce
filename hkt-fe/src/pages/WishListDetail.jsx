@@ -174,9 +174,9 @@ export default function WishlistDetail() {
                   {/* PRODUCT CARD - tắt nút tim & giỏ hàng */}
                   <div
                     onClick={() => navigate(`/product/${product.id}`)}
-                    className="cursor-pointer [&_button]:pointer-events-none [&_button]:opacity-0"
+                    className="cursor-pointer [&_button]:pointer-events-none"
                   >
-                    <ProductCard product={product} />
+                    <ProductCard product={product} isInWishlist={true}/>
                   </div>
                 </div>
               ))}

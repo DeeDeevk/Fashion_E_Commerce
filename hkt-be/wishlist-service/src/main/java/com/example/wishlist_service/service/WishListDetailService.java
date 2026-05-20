@@ -55,6 +55,7 @@ public class WishListDetailService {
         return detailRepository.findByWishlist_Id(wishlistId).stream()
                 .map(this::toResponse)
                 .toList();
+
     }
     // WishListDetailService.java
 

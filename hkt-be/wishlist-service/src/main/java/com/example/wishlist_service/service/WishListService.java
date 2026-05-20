@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +23,7 @@ public class WishListService {
 
     WishListRepository wishlistRepository;
     AccountRepository accountRepository;
+    WishListRepository wishListRepository;
 
     // ==================== CREATE ====================
     public WishListResponse createWishlist(WishList wishlist, String username) {
@@ -85,5 +89,15 @@ public class WishListService {
                 .username(w.getAccount().getUsername())
                 .itemCount(w.getDetails() != null ? w.getDetails().size() : 0)
                 .build();
+    }
+    public Map<Integer, Boolean> checkBatch(List<Integer> productIds, String username) {
+        // 1 query duy nhất lấy tất cả productId đang có trong wishlist của user
+        Set<Integer> inWishlist = wishListRepository.findProductIdsByUsername(username);
+
+        return productIds.stream()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        inWishlist::contains
+                ));
     }
 }

@@ -29,10 +29,11 @@ public class WishList {
     @Temporal(TemporalType.TIMESTAMP)
     private Date updated_at;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_login", referencedColumnName = "login_id")
     private Account account;
 
-    @OneToMany(mappedBy = "wishlist", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "wishlist", cascade = CascadeType.ALL,
+            orphanRemoval = true, fetch = FetchType.LAZY)
     private List<WishListDetail> details;
 }
