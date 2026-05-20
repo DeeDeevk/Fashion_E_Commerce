@@ -140,6 +140,7 @@ const ProductDetail = () => {
   const [zoomImage, setZoomImage] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [relatedWishlistMap, setRelatedWishlistMap] = useState({});
   const imageRef = useRef(null);
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
@@ -243,6 +244,17 @@ const ProductDetail = () => {
     };
     fetchOtherProducts();
   }, [id]);
+
+  useEffect(() => {
+    if (!otherProducts.length || !localStorage.getItem("accessToken")) return;
+    const ids = otherProducts.map((p) => p.id).join(",");
+    fetch(`http://localhost:8080/wishlists/products/in-wishlist-batch?productIds=${ids}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+    })
+        .then((r) => r.json())
+        .then((data) => setRelatedWishlistMap(data.result || data))
+        .catch(() => {});
+  }, [otherProducts]);
 
   const formatPrice = (price) => {
     // Đảm bảo giá là một số hợp lệ
@@ -710,7 +722,14 @@ const ProductDetail = () => {
             <h2 className="text-3xl font-bold mb-6">You May Also Like</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {otherProducts.map((prod) => (
-                <ProductCard key={prod.id} product={prod} />
+                  <ProductCard
+                      key={prod.id}
+                      product={prod}
+                      isInWishlist={relatedWishlistMap[prod.id] ?? false}   // ← thêm
+                      onWishlistChange={(id, status) =>                      // ← thêm
+                          setRelatedWishlistMap((prev) => ({ ...prev, [id]: status }))
+                      }
+                  />
               ))}
             </div>
           </div>

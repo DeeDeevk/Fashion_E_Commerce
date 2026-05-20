@@ -26,6 +26,7 @@ const Product = () => {
   const [sortBy, setSortBy] = useState("default");
   const [viewMode, setViewMode] = useState("grid");
   const [currentPage, setCurrentPage] = useState(1);
+  const [wishlistMap, setWishlistMap] = useState({});
   const itemsPerPage = viewMode === "grid" ? 9 : 9; // Grid & List: 9 items/page
 
   // Tính toán top 5 HOT và NEW products
@@ -77,6 +78,17 @@ const Product = () => {
     };
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (!products.length || !localStorage.getItem("accessToken")) return;
+    const ids = products.map((p) => p.id).join(",");
+    fetch(`http://localhost:8080/wishlists/products/in-wishlist-batch?productIds=${ids}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+    })
+        .then((r) => r.json())
+        .then((data) => setWishlistMap(data.result || data))
+        .catch(() => {});
+  }, [products]);
 
   // Fetch categories
   useEffect(() => {
@@ -407,13 +419,17 @@ const Product = () => {
                     const isNew = newProductIds.includes(product.id);
 
                     return (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        isHot={isHot}
-                        isNew={isNew && !isHot}
-                        viewMode={viewMode}
-                      />
+                        <ProductCard
+                            key={product.id}
+                            product={product}
+                            isHot={isHot}
+                            isNew={isNew && !isHot}
+                            viewMode={viewMode}
+                            isInWishlist={wishlistMap[product.id] ?? false}
+                            onWishlistChange={(id, status) =>                  
+                                setWishlistMap((prev) => ({ ...prev, [id]: status }))
+                            }
+                        />
                     );
                   })}
                 </div>

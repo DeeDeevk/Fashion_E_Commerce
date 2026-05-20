@@ -15,6 +15,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/wishlists")
@@ -120,6 +122,25 @@ public class WishListController {
         boolean exists = wishListRepository.existsByAccount_UsernameAndDetails_Product_Id(username, productId);
         return ApiResponse.<Boolean>builder()
                 .result(exists)
+                .build();
+    }
+    @GetMapping("/products/in-wishlist-batch")
+    public ApiResponse<Map<Integer, Boolean>> checkBatch(
+            @RequestParam List<Integer> productIds,
+            Authentication authentication) {
+
+        if (authentication == null || authentication.getName() == null) {
+            // Trả về tất cả false nếu chưa login
+            Map<Integer, Boolean> empty = productIds.stream()
+                    .collect(Collectors.toMap(id -> id, id -> false));
+            return ApiResponse.<Map<Integer, Boolean>>builder()
+                    .result(empty)
+                    .build();
+        }
+
+        Map<Integer, Boolean> result = wishlistService.checkBatch(productIds, authentication.getName());
+        return ApiResponse.<Map<Integer, Boolean>>builder()
+                .result(result)
                 .build();
     }
 }
