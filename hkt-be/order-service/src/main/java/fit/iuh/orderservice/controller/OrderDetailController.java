@@ -36,7 +36,7 @@ public class OrderDetailController {
         return response;
     }
 
-    // product-service gọi: GET /order-details/sold-quantity?productId=1
+    // product-service gọi: GET /order-details/sold-qauantity?productId=1
     // Trả về: { "result": 10 }
     @GetMapping("/sold-quantity")
     public Map<String, Object> getSoldQuantity(@RequestParam Integer productId) {

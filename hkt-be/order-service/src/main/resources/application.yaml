@@ -3,10 +3,16 @@ spring:
     name: order-service
 
   datasource:
-    url: jdbc:mariadb://localhost:3306/hkt_shop
+    url: jdbc:mariadb://mariadb:3306/hkt_shop
     username: root
     password: root
     driver-class-name: org.mariadb.jdbc.Driver
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}   # localhost khi dev, rabbitmq khi docker
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:admin}
+    password: ${SPRING_RABBITMQ_PASSWORD:admin123}
 
   jpa:
     hibernate:
@@ -52,3 +58,4 @@ sepay:
   api-key: KH3T_SHOP_KEY
 server:
   port: 8085
+

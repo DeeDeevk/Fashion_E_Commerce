@@ -1,5 +1,6 @@
 package fit.iuh.orderservice.service;
 
+import fit.iuh.orderservice.config.RabbitMQConfig;
 import fit.iuh.orderservice.dto.request.OrderDetailRequest;
 import fit.iuh.orderservice.dto.response.OrderDetailResponse;
 import fit.iuh.orderservice.entities.Order;
@@ -12,6 +13,7 @@ import fit.iuh.orderservice.repository.ProductRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,12 +30,22 @@ public class OrderDetailService {
     ProductRepository productRepository;
     OrderRepository orderRepository;
     OrderDetailMapper orderDetailMapper;
+    RabbitTemplate rabbitTemplate;
 
     public OrderDetailResponse createOrderDetail(OrderDetailRequest orderDetailRequest) {
         Product product = productRepository.findById(orderDetailRequest.getProductId())
                 .orElseThrow(() -> new RuntimeException("Product not found"));
+        System.out.println("📥 REQUEST productId = " + orderDetailRequest.getProductId());
+        System.out.println("📥 REQUEST productName = " + orderDetailRequest.getProductName());
+        System.out.println("📥 REQUEST orderId = " + orderDetailRequest.getOrderId());
+        System.out.println("📥 REQUEST quantity = " + orderDetailRequest.getQuantity());
         Order order = orderRepository.findById(orderDetailRequest.getOrderId())
                 .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if (product.getQuantity() < orderDetailRequest.getQuantity()) {
+            throw new RuntimeException("Không đủ tồn kho cho sản phẩm: " + product.getName()
+                    + " (còn " + product.getQuantity() + ")");
+        }
 
         OrderDetail orderDetail = new OrderDetail();
         orderDetail.setProduct(product);
@@ -46,6 +58,22 @@ public class OrderDetailService {
         orderDetail.setUnitPrice(orderDetailRequest.getUnitPrice());
 
         OrderDetail saved = orderDetailRepository.save(orderDetail);
+        productRepository.save(product);
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.EXCHANGE,
+                RabbitMQConfig.ROUTING_KEY,
+                new OrderConfirmedEventService(
+                        order.getId(),
+                        order.getOrderCode(),
+                        order.getAccount().getId(),
+                        List.of(new OrderConfirmedEventService.OrderItemEvent(
+                                product.getId(),
+                                orderDetailRequest.getProductName(),
+                                orderDetailRequest.getQuantity(),
+                                orderDetailRequest.getUnitPrice()
+                        ))
+                )
+        );
 
         return orderDetailMapper.toOrderDetailResponse(saved);
 
@@ -131,4 +159,6 @@ public class OrderDetailService {
         }
         return result;
     }
+
+
 }

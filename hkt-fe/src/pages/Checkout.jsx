@@ -257,7 +257,7 @@ const Checkout = () => {
                 unitPrice: item.priceAtTime,
                 totalPrice: item.subtotal,
                 orderId: orderData.id,
-                productId: item.id,
+                productId: item.productId,
               }),
             });
           }

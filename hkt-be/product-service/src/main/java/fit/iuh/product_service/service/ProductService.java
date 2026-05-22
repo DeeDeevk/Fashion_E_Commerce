@@ -11,6 +11,7 @@ import fit.iuh.product_service.entities.Product;
 import fit.iuh.product_service.entities.Size;
 import fit.iuh.product_service.entities.SizeDetail;
 import fit.iuh.product_service.enums.Status;
+import fit.iuh.product_service.event.ProductEventPublisher;
 import fit.iuh.product_service.repository.CategoryRepository;
 import fit.iuh.product_service.repository.ProductRepository;
 import fit.iuh.product_service.repository.SizeRepository;
@@ -38,6 +39,7 @@ public class ProductService {
     CategoryRepository categoryRepository;
     SizeRepository sizeRepository;
     RestTemplate restTemplate;
+    private final ProductEventPublisher productEventPublisher;
 
     // Tên service đăng ký trên Eureka (phải khớp với spring.application.name của order-service)
     static String ORDER_SERVICE_URL = "http://order-service";
@@ -228,6 +230,7 @@ public class ProductService {
                 .toInstant()));
 
         Product savedProduct = productRepository.save(product);
+        productEventPublisher.publishProductUpsert((long) savedProduct.getId());
 
         return convertToProductResponse(savedProduct, 0L);
     }
@@ -307,6 +310,7 @@ public class ProductService {
                 .toInstant()));
 
         Product updatedProduct = productRepository.save(existingProduct);
+        productEventPublisher.publishProductUpsert((long) updatedProduct.getId());
 
         return convertToProductResponse(updatedProduct, 0L);
     }

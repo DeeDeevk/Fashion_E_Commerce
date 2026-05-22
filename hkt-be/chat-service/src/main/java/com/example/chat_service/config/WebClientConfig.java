@@ -22,11 +22,12 @@ public class WebClientConfig {
                 .build();
     }
 
-    @Bean("ollamaWebClient")
-    public WebClient ollamaWebClient(
-            @Value("${ollama.url}") String ollamaUrl) {
+    @Bean("jinaWebClient")
+    public WebClient jinaWebClient(
+            @Value("${jina.api.key}") String jinaApiKey) {
         return WebClient.builder()
-                .baseUrl(ollamaUrl)
+                .baseUrl("https://api.jina.ai")
+                .defaultHeader("Authorization", "Bearer " + jinaApiKey)
                 .defaultHeader("Content-Type", "application/json")
                 .build();
     }
