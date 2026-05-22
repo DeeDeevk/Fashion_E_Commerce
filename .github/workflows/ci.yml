@@ -35,6 +35,9 @@ jobs:
           java-version: "21"
           distribution: "temurin"
           cache: maven
+      - name: Grant permission
+        working-directory: hkt-be/${{ matrix.service }}
+        run: chmod +x mvnw
 
       - name: Build · ${{ matrix.service }}
         working-directory: hkt-be/${{ matrix.service }}
