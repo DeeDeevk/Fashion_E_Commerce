@@ -13,7 +13,25 @@ services:
       - ./init_db/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
     networks:
       - hkt-network
-
+    healthcheck:
+      test: [ "CMD", "mariadb-admin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  # 2. db ui
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: hkt-phpmyadmin
+    ports:
+      - "3005:80"
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    depends_on:
+      - mariadb
+    networks:
+      - hkt-network
   # 2. Eureka Server (Discovery)
   eureka-server:
     build: ./hkt-be/eureka-server
@@ -44,12 +62,18 @@ services:
     ports:
       - "8083:8083"
     depends_on:
-      - mariadb
-      - eureka-server
+      mariadb:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
       EUREKA_INSTANCE_IP_ADDRESS: ${PRODUCT_SERVICE}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${SPRING_RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${SPRING_RABBITMQ_PASSWORD}
     networks:
       - hkt-network
 
@@ -60,8 +84,10 @@ services:
     ports:
       - "8082:8082"
     depends_on:
-      - mariadb
-      - eureka-server
+      mariadb:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
@@ -76,8 +102,10 @@ services:
     ports:
       - "8084:8084"
     depends_on:
-      - mariadb
-      - eureka-server
+      mariadb:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
@@ -92,12 +120,18 @@ services:
     ports:
       - "8085:8085"
     depends_on:
-      - mariadb
-      - eureka-server
+      mariadb:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
       EUREKA_INSTANCE_IP_ADDRESS: ${ORDER_SERVICE}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${SPRING_RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${SPRING_RABBITMQ_PASSWORD}
     networks:
       - hkt-network
 
@@ -111,8 +145,10 @@ services:
       - ./hkt-be/user-service:/app
       - /app/node_modules
     depends_on:
-      - mariadb
-      - eureka-server
+      mariadb:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
     environment:
       PORT: ${USER_PORT}
       DB_HOST: ${DB_HOST}
@@ -150,8 +186,10 @@ services:
     ports:
       - "8086:8086"
     depends_on:
-      - mariadb
-      - eureka-server
+      mariadb:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${MARIADB_ROOT_PASSWORD}
@@ -180,10 +218,14 @@ services:
     ports:
       - "8087:8087"
     depends_on:
-      - mariadb
-      - eureka-server
-      - qdrant
-      - ollama
+      mariadb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      qdrant:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${MARIADB_ROOT_PASSWORD}
@@ -193,46 +235,49 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY}
       QDRANT_HOST: ${QDRANT_HOST}
       QDRANT_PORT: ${QDRANT_PORT}
-      OLLAMA_URL: ${OLLAMA_URL}
+      JINA_API_KEY: ${JINA_API_KEY}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${SPRING_RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${SPRING_RABBITMQ_PASSWORD}
     networks:
       - hkt-network
     restart: on-failure
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-    networks:
-      - hkt-network
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
   redis:
     image: redis:7
     container_name: redis
     ports:
       - "6379:6379"
-
     restart: unless-stopped
-
     volumes:
       - redis_data:/data
-
     command: redis-server --appendonly yes
-
     networks:
       - hkt-network
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"    # port cho ứng dụng kết nối
+      - "15672:15672"  # port Web UI quản lý
+    environment:
+      RABBITMQ_DEFAULT_USER: ${SPRING_RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${SPRING_RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    networks:
+      - hkt-network
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 networks:
   hkt-network:
     driver: bridge
 
 volumes:
   mariadb_data:
-  ollama_data:
   redis_data:
+  rabbitmq_data:

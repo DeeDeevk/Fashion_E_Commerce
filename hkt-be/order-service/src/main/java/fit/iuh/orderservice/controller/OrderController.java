@@ -8,6 +8,7 @@ import fit.iuh.orderservice.service.OrderService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.ParseException;
@@ -61,5 +62,9 @@ public class OrderController {
     @GetMapping("account/{account_id}")
     public List<OrderResponse> getOrderByAccountId(@PathVariable int account_id){
         return orderService.getOrdersByAccountId(account_id);
+    }
+    @PostMapping("/{orderId}/confirm")
+    public ResponseEntity<OrderResponse> confirmOrder(@PathVariable int orderId) {
+        return ResponseEntity.ok(orderService.confirmOrder(orderId));
     }
 }

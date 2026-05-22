@@ -6,7 +6,7 @@ spring:
     name: product-service
 
   datasource:
-    url: jdbc:mariadb://localhost:3306/hkt_shop
+    url: jdbc:mariadb://mariadb:3306/hkt_shop
     username: root
     password: root
     driver-class-name: org.mariadb.jdbc.Driver
@@ -23,6 +23,11 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:admin}
+    password: ${SPRING_RABBITMQ_PASSWORD:admin123}
 
 eureka:
   client:

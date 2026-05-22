@@ -98,8 +98,7 @@ public class VectorStoreService {
 
     // Nhận englishQuery đã translate từ ChatController, KHÔNG translate lại
     public List<Map<String, Object>> searchRelevant(String englishQuery, int topK) {
-        List<Float> queryVector = embeddingService.embed(englishQuery);
-
+        List<Float> queryVector = embeddingService.embedQuery(englishQuery);
         try {
             List<ScoredPoint> results = qdrantClient.searchAsync(
                     SearchPoints.newBuilder()
