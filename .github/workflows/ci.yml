@@ -1,0 +1,90 @@
+name: CI - Build & Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-spring-service:
+    name: "Build · ${{ matrix.service }}"
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - admin-service
+          - api-gateway
+          - cart-service
+          - chat-service
+          - eureka-server
+          - order-service
+          - product-service
+          - wishlist-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+      - name: Grant permission
+        working-directory: hkt-be/${{ matrix.service }}
+        run: chmod +x mvnw
+
+      - name: Build · ${{ matrix.service }}
+        working-directory: hkt-be/${{ matrix.service }}
+        run: ./mvnw clean package -DskipTests
+
+  build-user-service:
+    name: "Build · user-service (Node.js)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: hkt-be/user-service/package-lock.json
+
+      - name: Install dependencies
+        working-directory: hkt-be/user-service
+        run: npm ci
+
+      - name: Run tests
+        working-directory: hkt-be/user-service
+        run: npm test --if-present
+
+  build-front-end:
+    name: "Build · frontend (Vite)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: hkt-fe/package-lock.json
+
+      - name: Install dependencies
+        working-directory: hkt-fe
+        run: npm ci
+
+      - name: Build Vite app
+        working-directory: hkt-fe
+        run: npm run build
