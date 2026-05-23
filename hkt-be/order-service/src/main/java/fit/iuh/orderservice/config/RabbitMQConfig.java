@@ -1,4 +1,4 @@
-package fit.iuh.orderservice.config; // đổi package cho product-service
+package fit.iuh.orderservice.config;
 
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -10,44 +10,34 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    // Tên Exchange, Queue, Routing Key — đặt constant để tránh typo
     public static final String EXCHANGE    = "order.exchange";
     public static final String QUEUE       = "order.created.queue";
     public static final String ROUTING_KEY = "order.confirmed";
 
-    // 1. Khai báo Exchange (kiểu Direct)
-    @Bean
-    public DirectExchange orderExchange() {
-        return new DirectExchange(EXCHANGE);
+    // ✅ MỚI: lắng nghe compensation từ product-service
+    public static final String STOCK_EXCHANGE    = "stock.exchange";
+    public static final String STOCK_QUEUE       = "stock.insufficient.queue";
+    public static final String STOCK_ROUTING_KEY = "stock.insufficient";
+
+    @Bean public DirectExchange orderExchange() { return new DirectExchange(EXCHANGE); }
+    @Bean public Queue orderCreatedQueue() { return QueueBuilder.durable(QUEUE).build(); }
+    @Bean public Binding orderCreatedBinding(Queue orderCreatedQueue, DirectExchange orderExchange) {
+        return BindingBuilder.bind(orderCreatedQueue).to(orderExchange).with(ROUTING_KEY);
     }
 
-    // 2. Khai báo Queue (durable = tồn tại kể cả khi restart RabbitMQ)
-    @Bean
-    public Queue orderCreatedQueue() {
-        return QueueBuilder.durable(QUEUE).build();
+    // ✅ MỚI: bind vào stock exchange để nhận rollback event
+    @Bean public DirectExchange stockExchange() { return new DirectExchange(STOCK_EXCHANGE); }
+    @Bean public Queue stockInsufficientQueue() { return QueueBuilder.durable(STOCK_QUEUE).build(); }
+    @Bean public Binding stockInsufficientBinding(Queue stockInsufficientQueue, DirectExchange stockExchange) {
+        return BindingBuilder.bind(stockInsufficientQueue).to(stockExchange).with(STOCK_ROUTING_KEY);
     }
 
-    // 3. Binding Queue với Exchange qua Routing Key
-    @Bean
-    public Binding orderCreatedBinding(Queue orderCreatedQueue,
-                                       DirectExchange orderExchange) {
-        return BindingBuilder
-                .bind(orderCreatedQueue)
-                .to(orderExchange)
-                .with(ROUTING_KEY);
-    }
+    @Bean public Jackson2JsonMessageConverter messageConverter() { return new Jackson2JsonMessageConverter(); }
 
-    // 4. Dùng JSON thay vì Java serialization
     @Bean
-    public Jackson2JsonMessageConverter messageConverter() {
-        return new Jackson2JsonMessageConverter();
-    }
-
-    // 5. RabbitTemplate dùng JSON converter
-    @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMessageConverter(messageConverter());
-        return template;
+    public RabbitTemplate rabbitTemplate(ConnectionFactory cf) {
+        RabbitTemplate t = new RabbitTemplate(cf);
+        t.setMessageConverter(messageConverter());
+        return t;
     }
 }

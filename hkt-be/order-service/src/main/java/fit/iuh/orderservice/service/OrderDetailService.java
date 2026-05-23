@@ -30,25 +30,13 @@ public class OrderDetailService {
     ProductRepository productRepository;
     OrderRepository orderRepository;
     OrderDetailMapper orderDetailMapper;
-    RabbitTemplate rabbitTemplate;
 
     public OrderDetailResponse createOrderDetail(OrderDetailRequest orderDetailRequest) {
-        Product product = productRepository.findById(orderDetailRequest.getProductId())
-                .orElseThrow(() -> new RuntimeException("Product not found"));
-        System.out.println("📥 REQUEST productId = " + orderDetailRequest.getProductId());
-        System.out.println("📥 REQUEST productName = " + orderDetailRequest.getProductName());
-        System.out.println("📥 REQUEST orderId = " + orderDetailRequest.getOrderId());
-        System.out.println("📥 REQUEST quantity = " + orderDetailRequest.getQuantity());
+        Product product = productRepository.getReferenceById(orderDetailRequest.getProductId());
         Order order = orderRepository.findById(orderDetailRequest.getOrderId())
                 .orElseThrow(() -> new RuntimeException("Order not found"));
-
-        if (product.getQuantity() < orderDetailRequest.getQuantity()) {
-            throw new RuntimeException("Không đủ tồn kho cho sản phẩm: " + product.getName()
-                    + " (còn " + product.getQuantity() + ")");
-        }
-
         OrderDetail orderDetail = new OrderDetail();
-        orderDetail.setProduct(product);
+        orderDetail.setProduct(product);   // chỉ set FK reference, không load data
         orderDetail.setOrder(order);
         orderDetail.setProductName(orderDetailRequest.getProductName());
         orderDetail.setQuantity(orderDetailRequest.getQuantity());
@@ -56,29 +44,8 @@ public class OrderDetailService {
         orderDetail.setUpdated_at(new Date());
         orderDetail.setTotalPrice(orderDetailRequest.getTotalPrice());
         orderDetail.setUnitPrice(orderDetailRequest.getUnitPrice());
-
-        OrderDetail saved = orderDetailRepository.save(orderDetail);
-        productRepository.save(product);
-        rabbitTemplate.convertAndSend(
-                RabbitMQConfig.EXCHANGE,
-                RabbitMQConfig.ROUTING_KEY,
-                new OrderConfirmedEventService(
-                        order.getId(),
-                        order.getOrderCode(),
-                        order.getAccount().getId(),
-                        List.of(new OrderConfirmedEventService.OrderItemEvent(
-                                product.getId(),
-                                orderDetailRequest.getProductName(),
-                                orderDetailRequest.getQuantity(),
-                                orderDetailRequest.getUnitPrice()
-                        ))
-                )
-        );
-
-        return orderDetailMapper.toOrderDetailResponse(saved);
-
+        return orderDetailMapper.toOrderDetailResponse(orderDetailRepository.save(orderDetail));
     }
-
 
     // Lấy sold quantity của TẤT CẢ sản phẩm → trả về Map<productId, soldQty>
     public Map<Integer, Long> getSoldQuantityAll() {

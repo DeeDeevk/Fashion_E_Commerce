@@ -67,4 +67,8 @@ public class OrderController {
     public ResponseEntity<OrderResponse> confirmOrder(@PathVariable int orderId) {
         return ResponseEntity.ok(orderService.confirmOrder(orderId));
     }
+    @GetMapping("/{id}")
+    public ResponseEntity<OrderResponse> getOrderById(@PathVariable int id) {
+        return ResponseEntity.ok(orderService.getOrderById(id));
+    }
 }

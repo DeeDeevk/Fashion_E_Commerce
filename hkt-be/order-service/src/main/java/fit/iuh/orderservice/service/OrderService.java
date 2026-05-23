@@ -10,17 +10,14 @@ import fit.iuh.orderservice.entities.*;
 import fit.iuh.orderservice.enums.StatusOrdering;
 import fit.iuh.orderservice.exception.AppException;
 import fit.iuh.orderservice.exception.ErrorCode;
-import fit.iuh.orderservice.mapper.CustomerTradingMapper;
 import fit.iuh.orderservice.mapper.OrderMapper;
 import fit.iuh.orderservice.repository.AccountRepository;
 import fit.iuh.orderservice.repository.OrderRepository;
-import fit.iuh.orderservice.repository.ProductRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
-import fit.iuh.orderservice.service.OrderConfirmedEventService;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.ParseException;
@@ -36,9 +33,7 @@ import java.util.stream.Collectors;
 public class OrderService {
     OrderRepository orderRepository;
     CustomerTradingService customerTradingService;
-    CustomerTradingMapper customerTradingMapper;
     AccountRepository accountRepository;
-    ProductRepository productRepository;
     OrderMapper orderMapper;
     RabbitTemplate rabbitTemplate;
 
@@ -225,27 +220,11 @@ public class OrderService {
     }
     @Transactional
     public OrderResponse confirmOrder(int orderId) {
-        System.out.println("🔥 [CONFIRM START] orderId = " + orderId);
-
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
-        // ✅ Trừ stock từng item
-        for (OrderDetail detail : order.getOrderDetails()) {
-            Product product = detail.getProduct();
-            System.out.println("🔥 BEFORE quantity = " + product.getQuantity());
+        // ✅ KHÔNG trừ stock ở đây nữa — product-service sẽ xử lý qua RabbitMQ
 
-            if (product.getQuantity() < detail.getQuantity()) {
-                throw new RuntimeException("Không đủ tồn kho: " + product.getName()
-                        + " (còn " + product.getQuantity() + ")");
-            }
-
-            product.setQuantity(product.getQuantity() - detail.getQuantity());
-            productRepository.save(product);
-            System.out.println("🔥 AFTER quantity = " + product.getQuantity());
-        }
-
-        // ✅ Publish RabbitMQ
         List<OrderConfirmedEventService.OrderItemEvent> items = order.getOrderDetails()
                 .stream()
                 .map(d -> new OrderConfirmedEventService.OrderItemEvent(
@@ -259,23 +238,12 @@ public class OrderService {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.EXCHANGE,
                 RabbitMQConfig.ROUTING_KEY,
-                new OrderConfirmedEventService(
-                        order.getId(),
-                        order.getOrderCode(),
-                        order.getAccount().getId(),
-                        items
-                )
+                new OrderConfirmedEventService(order.getId(), order.getOrderCode(),
+                        order.getAccount().getId(), items)
         );
 
-        System.out.println("📤 RABBITMQ SENT DONE");
-
-        // ✅ Update status
         order.setStatusOrder(StatusOrdering.CONFIRMED);
         Order saved = orderRepository.save(order);
-
-        System.out.println("🔥 [CONFIRM SUCCESS] orderId = " + orderId);
         return orderMapper.toOrderMapper(saved);
     }
-
-
 }
