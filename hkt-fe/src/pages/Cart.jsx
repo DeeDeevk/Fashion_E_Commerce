@@ -323,7 +323,7 @@ const Cart = () => {
         } else {
             localStorage.setItem("cartItems", JSON.stringify(cartItems));
             navigate("/checkout", {
-                state: { userId: user.id, select: select },
+                state: { userId: user.id, select: select, cartId: cart.id, },
             });
         }
     };
