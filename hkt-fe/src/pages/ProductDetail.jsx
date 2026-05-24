@@ -403,9 +403,72 @@ const ProductDetail = () => {
     setPosition({ x: 0, y: 0 });
   };
 
-  const changeQuantity = (delta) => {
-    setQuantity((prev) => Math.max(1, prev + delta));
-  };
+  // const changeQuantity = (delta) => {
+  //   setQuantity((prev) => Math.max(1, prev + delta));
+  // };
+    const changeQuantity = (delta) => {
+        setQuantity((prev) => {
+            const newQuantity = prev + delta;
+            // Không cho giảm dưới 1 và không cho tăng quá currentStock
+            if (newQuantity < 1) return 1;
+            if (newQuantity > currentStock) {
+                toast.warning(`Only ${currentStock} items available in stock!`);
+                return prev; // Giữ nguyên số lượng cũ
+            }
+            return newQuantity;
+        });
+    };
+// Hàm xử lý khi người dùng gõ vào input
+    const handleQuantityChange = (e) => {
+        const val = e.target.value;
+
+        // Cho phép input rỗng (khi user nhấn nút Backspace để xóa đi nhập lại)
+        if (val === "") {
+            setQuantity("");
+            return;
+        }
+
+        const num = parseInt(val, 10);
+
+        // Bỏ qua nếu nhập ký tự không phải là số
+        if (isNaN(num)) return;
+
+        // Tính toán tồn kho của size đang chọn (từ logic chúng ta đã bàn ở phần trước)
+        const currentStock = selectedSize
+            ? uniqueSizes.find(size => size.sizeName === selectedSize)?.quantity || 0
+            : totalStock;
+
+        // Kiểm tra giới hạn tồn kho
+        if (num > currentStock) {
+            toast.warning(`Only ${currentStock} items available in stock!`);
+            setQuantity(currentStock); // Ép về số lượng tối đa
+        } else {
+            setQuantity(num);
+        }
+    };
+
+    // Hàm xử lý khi người dùng click ra ngoài (onBlur)
+    const handleQuantityBlur = () => {
+        // Nếu user bỏ trống hoặc nhập số nhỏ hơn 1 thì reset về 1
+        if (quantity === "" || quantity < 1) {
+            setQuantity(1);
+        }
+    };
+// Hàm xử lý khi người dùng đổi Size
+    const handleSizeSelect = (newSizeName) => {
+        setSelectedSize(newSizeName); // Cập nhật size mới
+
+        // Tìm số lượng tồn kho của size vừa chọn
+        const newSizeStock = uniqueSizes.find(size => size.sizeName === newSizeName)?.quantity || 0;
+
+        // Nếu số lượng user đang chọn lớn hơn tồn kho của size mới
+        if (quantity > newSizeStock && newSizeStock > 0) {
+            setQuantity(newSizeStock); // Tự động kéo tụt quantity xuống bằng max tồn kho của size mới
+            toast.info(`Adjusted quantity to ${newSizeStock} due to stock limits of Size ${newSizeName}.`);
+        } else if (newSizeStock <= 0) {
+            setQuantity(1); // Reset an toàn nếu rủi ro chọn trúng size hết hàng
+        }
+    };
 
   const handleWheel = (e) => {
     e.preventDefault();
@@ -510,7 +573,10 @@ const ProductDetail = () => {
   // LOGIC SOLD OUT: Tính tổng tồn kho và xác định Sold Out
   const totalStock = uniqueSizes.reduce((sum, size) => sum + size.quantity, 0);
   const isSoldOut = totalStock === 0;
-
+// THÊM ĐOẠN NÀY: Lấy tồn kho của size đang chọn, nếu chưa chọn size thì hiện tổng tồn kho
+    const currentStock = selectedSize
+        ? uniqueSizes.find(size => size.sizeName === selectedSize)?.quantity || 0
+        : totalStock;
   const isComparing = compareList.some((p) => p.id === product.id);
 
   return (
@@ -617,16 +683,27 @@ const ProductDetail = () => {
               <div className="flex gap-2 flex-wrap">
                 {uniqueSizes.map((size) => (
                   <button
-                    key={size.sizeName}
-                    onClick={() => setSelectedSize(size.sizeName)}
-                    disabled={size.quantity <= 0}
-                    className={`px-4 py-2 rounded-lg border ${
-                      selectedSize === size.sizeName
-                        ? "bg-red-500 text-white border-red-500"
-                        : "border-gray-300 hover:bg-gray-100"
-                    } ${
-                      size.quantity <= 0 ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
+                    // key={size.sizeName}
+                    // onClick={() => setSelectedSize(size.sizeName)}
+                    // disabled={size.quantity <= 0}
+                    // className={`px-4 py-2 rounded-lg border ${
+                    //   selectedSize === size.sizeName
+                    //     ? "bg-red-500 text-white border-red-500"
+                    //     : "border-gray-300 hover:bg-gray-100"
+                    // } ${
+                    //   size.quantity <= 0 ? "opacity-50 cursor-not-allowed" : ""
+                    // }`}
+
+                      key={size.sizeName}
+                      onClick={() => handleSizeSelect(size.sizeName)}
+                      disabled={size.quantity <= 0}
+                      className={`px-4 py-2 rounded-lg border ${
+                          selectedSize === size.sizeName
+                              ? "bg-red-500 text-white border-red-500"
+                              : "border-gray-300 hover:bg-gray-100"
+                      } ${
+                          size.quantity <= 0 ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                   >
                     {size.sizeName}
                   </button>
@@ -647,9 +724,32 @@ const ProductDetail = () => {
                 >
                   <Minus size={16} />
                 </button>
-                <span className="px-4 py-2 border border-gray-300 rounded-lg">
-                  {quantity}
-                </span>
+                {/*<span className="px-4 py-2 border border-gray-300 rounded-lg">*/}
+                {/*  {quantity}*/}
+                {/*</span>*/}
+                {/*  <input*/}
+                {/*      type="number"*/}
+                {/*      value={quantity}*/}
+                {/*      onChange={handleQuantityChange}*/}
+                {/*      onBlur={handleQuantityBlur}*/}
+                {/*      disabled={isSoldOut}*/}
+                {/*      className={`w-16 text-center px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500 transition-colors ${*/}
+                {/*          isSoldOut ? "bg-gray-100 opacity-50 cursor-not-allowed" : ""*/}
+                {/*      }`}*/}
+                {/*      // Ẩn hai mũi tên tăng/giảm mặc định của trình duyệt (vì đã có nút + và - custom)*/}
+                {/*      style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}*/}
+                {/*  />*/}
+                  <input
+                      type="number"
+                      value={quantity}
+                      onChange={handleQuantityChange}
+                      onBlur={handleQuantityBlur}
+                      disabled={isSoldOut}
+                      className={`w-16 text-center px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                          isSoldOut ? "bg-gray-100 opacity-50 cursor-not-allowed" : ""
+                      }`}
+                  />
+
                 <button
                   onClick={() => changeQuantity(1)}
                   disabled={isSoldOut} // Disable quantity change if sold out
@@ -660,6 +760,17 @@ const ProductDetail = () => {
                   <Plus size={16} />
                 </button>
               </div>
+                {/* THÊM ĐOẠN NÀY: Dòng hiển thị tồn kho */}
+                <div className="mt-2 text-sm">
+                    <span className="text-gray-600">Available Stock: </span>
+                    <span className="font-bold text-red-600">{currentStock} items</span>
+                    {selectedSize && (
+                        <span className="text-gray-500 italic ml-1">(Size {selectedSize})</span>
+                    )}
+                </div>
+
+
+
             </div>
             {/* ACTION BUTTONS */}
             <div className="flex gap-4 mb-6">

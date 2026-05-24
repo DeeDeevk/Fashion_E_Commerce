@@ -62,4 +62,12 @@ public class CartDetailController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/{cartDetailId}/update-quantity")
+    public ResponseEntity<CartDetailResponse> updateQuantity(
+            @PathVariable int cartDetailId,
+            @RequestBody Map<String, Integer> body) {
+        int quantity = body.get("quantity");
+        CartDetailResponse response = cartDetailService.updateCartDetailQuantity(cartDetailId, quantity);
+        return ResponseEntity.ok(response);
+    }
 }

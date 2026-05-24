@@ -119,7 +119,7 @@ export default function Header() {
     };
     window.addEventListener("cartUpdated", handleCartUpdated);
     return () => window.removeEventListener("cartUpdated", handleCartUpdated);
-  });
+  },[user]);
 
   // Đóng dropdown khi click ngoài
   useEffect(() => {
