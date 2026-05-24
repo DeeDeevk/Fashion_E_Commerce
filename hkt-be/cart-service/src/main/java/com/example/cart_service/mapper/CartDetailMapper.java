@@ -17,6 +17,9 @@ public interface CartDetailMapper {
     @Mapping(source = "price_at_time", target = "priceAtTime")
     @Mapping(source = "selected",                  target = "selected")
     @Mapping(source = "cart.id",                   target = "cartId")
+
+    // THÊM DÒNG NÀY: Ánh xạ quantity từ SizeDetail sang trường stock trong Response
+    @Mapping(source = "sizeDetail.quantity",         target = "stock")
     CartDetailResponse toCartDetailResponse(CartDetail cartDetail);
 
 
