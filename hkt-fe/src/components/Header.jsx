@@ -22,7 +22,31 @@ export default function Header() {
   const location = useLocation();
   const searchRef = useRef(null);
   const dropdownRef = useRef(null);
+// --- CHÈN THÊM ĐOẠN NÀY ĐỂ QUẢN LÝ SỐ LƯỢNG GIỎ HÀNG ---
+    const [cartCount, setCartCount] = useState(0);
 
+    const fetchCartCount = async () => {
+        try {
+            const cartId = localStorage.getItem("cartId") || 3; // Lấy cartId từ localStorage hoặc mặc định là 3 như API của bạn
+            const token = localStorage.getItem("accessToken");
+
+            const res = await fetch(`http://localhost:8080/cart-details/cart/${cartId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                // Tính tổng số lượng (quantity) của tất cả sản phẩm trong giỏ
+                const total = data.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+                setCartCount(total);
+            }
+        } catch (err) {
+            console.error("Lỗi cập nhật số lượng giỏ hàng tại Header:", err);
+        }
+    };
+    // --------------------------------------------------------
   useEffect(() => {
     const sessionAlive = sessionStorage.getItem("session_alive");
 
@@ -40,6 +64,12 @@ export default function Header() {
     }
   }, []);
 
+    // Khởi chạy lấy số lượng khi load trang và lắng nghe sự kiện đồng bộ dữ liệu giữa các trang
+    useEffect(() => {
+        fetchCartCount();
+        window.addEventListener("cartUpdated", fetchCartCount);
+        return () => window.removeEventListener("cartUpdated", fetchCartCount);
+    }, []);
   // Kiểm tra đăng nhập
   useEffect(() => {
     const checkAuth = () => {
@@ -366,15 +396,31 @@ export default function Header() {
                     </button>
                   </div>
                 </div>
-                <button
-                  onClick={() => navigate("/cart")}
-                  className="text-gray-600 hover:text-red-500 transition relative"
-                >
-                  <ShoppingCart size={26} strokeWidth={2} />
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {cart?.totalQuantity}
-                  </span>
-                </button>
+                {/*<button*/}
+                {/*  onClick={() => navigate("/cart")}*/}
+                {/*  className="text-gray-600 hover:text-red-500 transition relative"*/}
+                {/*>*/}
+                {/*  <ShoppingCart size={26} strokeWidth={2} />*/}
+                {/*  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">*/}
+                {/*    {cart?.totalQuantity}*/}
+                {/*  </span>*/}
+                {/*</button>*/}
+
+                  {/* Bọc icon giỏ hàng bằng Link chuyển trang, bắt buộc có lớp relative */}
+                  <Link
+                      to="/cart"
+                      className="relative p-2 text-gray-700 hover:text-black transition-colors flex items-center justify-center"
+                  >
+                      {/* Icon giỏ hàng từ thư viện lucide-react */}
+                      <ShoppingCart size={24} />
+
+                      {/* Chỉ hiển thị vòng tròn đỏ CHỨA SỐ nếu số lượng lớn hơn 0 */}
+                      {cartCount > 0 && (
+                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md border border-white animate-pulse">
+      {cartCount}
+    </span>
+                      )}
+                  </Link>
               </>
             ) : (
               <div className="hidden sm:flex items-center gap-3">
