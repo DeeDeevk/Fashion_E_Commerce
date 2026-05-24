@@ -26,4 +26,6 @@ public class CartDetailResponse {
     private Date createAt;
     private Date updateAt;
 
+    // THÊM TRƯỜNG NÀY ĐỂ TRẢ VỀ SỐ LƯỢNG KHO THỰC TẾ CỦA SIZE ĐÓ
+    private int stock;
 }

@@ -204,7 +204,15 @@ const Cart = () => {
     //         console.error("Lỗi update select: ", err);
     //     }
     // };
-    const handleToggleIncrease = async (cartDetailId, priceAtTime) => {
+
+    const handleToggleIncrease = async (cartDetailId, priceAtTime, currentQuantity, maxStock) => {
+    // const handleToggleIncrease = async (cartDetailId, priceAtTime) => {
+        // Nếu số lượng hiện tại đã đạt tối đa trong kho, không cho tăng nữa
+        if (currentQuantity >= maxStock) {
+            toast.error(`Sản phẩm này chỉ còn tối đa ${maxStock} sản phẩm trong kho!`);
+            return;
+        }
+
         try {
             const token = localStorage.getItem("accessToken");
             const res = await fetch(
@@ -499,12 +507,19 @@ const Cart = () => {
             parsedValue = 0; // Tạm thời cho phép bằng 0 khi đang gõ
         }
 
-        // Kiểm tra giới hạn tồn kho (Ví dụ trường tồn kho là item.stock hoặc mặc định là 99)
-        const stock = maxStock || 99;
-        if (parsedValue > stock) {
-            toast.error(`Sản phẩm này chỉ còn tối đa ${stock} sản phẩm trong kho!`);
-            parsedValue = stock;
+        // THAY ĐỔI TẠI ĐÂY: Sử dụng biến maxStock động lấy từ kho thực tế của sản phẩm
+        const stockAvailable = maxStock || 0;
+        if (parsedValue > stockAvailable) {
+            toast.error(`Sản phẩm này chỉ còn tối đa ${stockAvailable} sản phẩm trong kho!`);
+            parsedValue = stockAvailable; // Tự động đưa về số lượng tối đa trong kho
         }
+
+        // // Kiểm tra giới hạn tồn kho (Ví dụ trường tồn kho là item.stock hoặc mặc định là 99)
+        // const stock = maxStock || 99;
+        // if (parsedValue > stock) {
+        //     toast.error(`Sản phẩm này chỉ còn tối đa ${stock} sản phẩm trong kho!`);
+        //     parsedValue = stock;
+        // }
 
         setCartItems((prev) =>
             prev.map((item) =>
@@ -719,17 +734,24 @@ const Cart = () => {
                                                 value={item.quantity}
                                                 min="0" // Cho phép gõ số 0
 
-                                                // Giả sử backend trả về số lượng kho ở biến 'item.stock'. Bạn hãy đổi tên biến này nếu cần.
+                                                // // Giả sử backend trả về số lượng kho ở biến 'item.stock'. Bạn hãy đổi tên biến này nếu cần.
+                                                // onChange={(e) => handleQuantityChange(item.id, e.target.value, item.stock)}
+                                                //
+                                                // onFocus={() => {
+                                                //     // Trước khi người dùng sửa, lưu ngay số lượng và subtotal gốc vào bộ nhớ tạm
+                                                //     setEditingItemData((prev) => ({
+                                                //         ...prev,
+                                                //         [item.id]: { quantity: item.quantity, subtotal: item.subtotal }
+                                                //     }));
+                                                // }}
+                                                // Truyền item.stock (số lượng kho thực tế) vào hàm kiểm tra
                                                 onChange={(e) => handleQuantityChange(item.id, e.target.value, item.stock)}
-
                                                 onFocus={() => {
-                                                    // Trước khi người dùng sửa, lưu ngay số lượng và subtotal gốc vào bộ nhớ tạm
                                                     setEditingItemData((prev) => ({
                                                         ...prev,
                                                         [item.id]: { quantity: item.quantity, subtotal: item.subtotal }
                                                     }));
                                                 }}
-
                                                 onBlur={() => handleBlurQuantity(item)}
 
                                                 onKeyDown={(e) => {
@@ -764,6 +786,12 @@ const Cart = () => {
                                             {/*    +*/}
                                             {/*</button>*/}
                                         </div>
+    {/*                                    <span className="text-[11px] text-gray-500 font-medium tracking-wide bg-gray-100 px-2 py-0.5 rounded-full">*/}
+    {/*    Còn lại: {item.stock ?? 0} sản phẩm*/}
+    {/*</span>*/}
+                                        <span className="text-[11px] text-gray-500 font-medium tracking-wide bg-gray-100 px-2 py-0.5 rounded-full">
+        Còn lại: {item.stock ?? 0} sản phẩm
+    </span>
                                     </div>
                                     <div className="text-right font-semibold text-lg">
                                         {formatVND(item.subtotal)}
