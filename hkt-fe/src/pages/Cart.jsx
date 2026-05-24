@@ -450,8 +450,43 @@ const Cart = () => {
             console.error("Lỗi update select: ", err);
         }
     };
+
+    const [editingItemData, setEditingItemData] = useState({});
+    // const handleQuantityChange = (cartDetailId, value, maxStock) => {
+    //     // Cho phép ô nhập trống tạm thời khi người dùng đang xóa để gõ số mới
+    //     if (value === "") {
+    //         setCartItems((prev) =>
+    //             prev.map((item) => (item.id === cartDetailId ? { ...item, quantity: "" } : item))
+    //         );
+    //         return;
+    //     }
+    //
+    //     let parsedValue = parseInt(value, 10);
+    //     if (isNaN(parsedValue) || parsedValue < 1) {
+    //         parsedValue = 1;
+    //     }
+    //
+    //     // Kiểm tra với số lượng tồn kho (Giả sử thuộc tính trong item backend trả về là item.sizeStock)
+    //     // Bạn hãy đổi 'sizeStock' thành tên thuộc tính chứa số lượng tồn kho của bạn
+    //     // const stock = maxStock || 99; // fallback nếu chưa có dữ liệu stock
+    //     const stock = maxStock ;
+    //
+    //     if (parsedValue > stock) {
+    //         toast.error(`Sản phẩm này chỉ còn tối đa ${stock} sản phẩm trong kho!`);
+    //         parsedValue = stock;
+    //     }
+    //
+    //     setCartItems((prev) =>
+    //         prev.map((item) =>
+    //             item.id === cartDetailId
+    //                 ? { ...item, quantity: parsedValue, subtotal: parsedValue * item.priceAtTime }
+    //                 : item
+    //         )
+    //     );
+    // };
+// Hàm xử lý khi người dùng đang gõ số lượng từ bàn phím
     const handleQuantityChange = (cartDetailId, value, maxStock) => {
-        // Cho phép ô nhập trống tạm thời khi người dùng đang xóa để gõ số mới
+        // Cho phép ô nhập trống tạm thời khi người dùng xóa sạch để gõ số mới
         if (value === "") {
             setCartItems((prev) =>
                 prev.map((item) => (item.id === cartDetailId ? { ...item, quantity: "" } : item))
@@ -460,13 +495,12 @@ const Cart = () => {
         }
 
         let parsedValue = parseInt(value, 10);
-        if (isNaN(parsedValue) || parsedValue < 1) {
-            parsedValue = 1;
+        if (isNaN(parsedValue)) {
+            parsedValue = 0; // Tạm thời cho phép bằng 0 khi đang gõ
         }
 
-        // Kiểm tra với số lượng tồn kho (Giả sử thuộc tính trong item backend trả về là item.sizeStock)
-        // Bạn hãy đổi 'sizeStock' thành tên thuộc tính chứa số lượng tồn kho của bạn
-        const stock = maxStock || 99; // fallback nếu chưa có dữ liệu stock
+        // Kiểm tra giới hạn tồn kho (Ví dụ trường tồn kho là item.stock hoặc mặc định là 99)
+        const stock = maxStock || 99;
         if (parsedValue > stock) {
             toast.error(`Sản phẩm này chỉ còn tối đa ${stock} sản phẩm trong kho!`);
             parsedValue = stock;
@@ -480,17 +514,72 @@ const Cart = () => {
             )
         );
     };
+    // const handleBlurQuantity = async (item) => {
+    //     let finalQty = parseInt(item.quantity, 10);
+    //     if (isNaN(finalQty) || finalQty < 1) {
+    //         finalQty = 1;
+    //     }
+    //
+    //     try {
+    //         const token = localStorage.getItem("accessToken");
+    //
+    //         // 1. Gọi API cập nhật số lượng mới lên DB
+    //         const res = await fetch(`http://localhost:8080/cart-details/${item.id}/update-quantity`, {
+    //             method: "PUT",
+    //             headers: {
+    //                 "Content-Type": "application/json",
+    //                 Authorization: `Bearer ${token}`,
+    //             },
+    //             body: JSON.stringify({ quantity: finalQty }),
+    //         });
+    //
+    //         const data = await res.json();
+    //
+    //         if (!res.ok) {
+    //             toast.error(data.message || "Không thể cập nhật số lượng");
+    //             // Nếu lỗi từ backend (ví dụ vượt tồn kho), tải lại giỏ hàng để đồng bộ đúng
+    //             hanldeFetchCart();
+    //             return;
+    //         }
+    //
+    //         // Cập nhật lại item theo data chuẩn từ backend trả về
+    //         setCartItems((prev) =>
+    //             prev.map((i) => (i.id === item.id ? { ...i, ...data } : i))
+    //         );
+    //
+    //         // 2. Tính toán lại giỏ hàng tổng (Carts) nếu backend yêu cầu cập nhật thủ công qua API này giống như hàm tăng/giảm của bạn
+    //         // Tuy nhiên cách tối ưu nhất là gọi lại hàm hanldeFetchCart() để lấy dữ liệu mới nhất
+    //         hanldeFetchCart();
+    //         window.dispatchEvent(new Event("cartUpdated"));
+    //
+    //     } catch (err) {
+    //         console.error("Lỗi cập nhật số lượng trực tiếp: ", err);
+    //         toast.error("Đã xảy ra lỗi khi cập nhật số lượng.");
+    //     }
+    // };
 
+// Hàm xử lý khi người dùng nhấn Enter hoặc click ra ngoài ô nhập (onBlur)
     const handleBlurQuantity = async (item) => {
         let finalQty = parseInt(item.quantity, 10);
-        if (isNaN(finalQty) || finalQty < 1) {
-            finalQty = 1;
+
+        // XỬ LÝ KHI NHẬP BẰNG 0 HOẶC ĐỂ TRỐNG: Hiển thị thông báo xác nhận xóa sản phẩm
+        if (isNaN(finalQty) || finalQty <= 0) {
+            if (window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?")) {
+                // Lấy lại số lượng và subtotal gốc trước khi sửa từ state tạm editingItemData
+                const original = editingItemData[item.id] || { quantity: 1, subtotal: item.priceAtTime };
+
+                // Gọi hàm handleDelete có sẵn của bạn để xóa hoàn toàn trong DB và trừ tiền giỏ tổng
+                handleDelete(item.id, original.quantity, original.subtotal);
+            } else {
+                // Nếu người dùng nhấn Hủy (Cancel) -> Gọi hàm tải lại giỏ hàng để khôi phục số lượng cũ
+                hanldeFetchCart();
+            }
+            return;
         }
 
+        // XỬ LÝ KHI NHẬP SỐ HỢP LỆ (> 0): Gọi API cập nhật số lượng lên hệ thống
         try {
             const token = localStorage.getItem("accessToken");
-
-            // 1. Gọi API cập nhật số lượng mới lên DB
             const res = await fetch(`http://localhost:8080/cart-details/${item.id}/update-quantity`, {
                 method: "PUT",
                 headers: {
@@ -501,29 +590,21 @@ const Cart = () => {
             });
 
             const data = await res.json();
-
-            if (!res.ok) {
-                toast.error(data.message || "Không thể cập nhật số lượng");
-                // Nếu lỗi từ backend (ví dụ vượt tồn kho), tải lại giỏ hàng để đồng bộ đúng
+            if (res.ok) {
+                // Đồng bộ lại toàn bộ dữ liệu giỏ hàng chi tiết và tổng tiền
                 hanldeFetchCart();
-                return;
+                if (user?.id) fetchCart();
+                window.dispatchEvent(new Event("cartUpdated"));
+            } else {
+                toast.error(data.message || "Không thể cập nhật số lượng");
+                hanldeFetchCart();
             }
-
-            // Cập nhật lại item theo data chuẩn từ backend trả về
-            setCartItems((prev) =>
-                prev.map((i) => (i.id === item.id ? { ...i, ...data } : i))
-            );
-
-            // 2. Tính toán lại giỏ hàng tổng (Carts) nếu backend yêu cầu cập nhật thủ công qua API này giống như hàm tăng/giảm của bạn
-            // Tuy nhiên cách tối ưu nhất là gọi lại hàm hanldeFetchCart() để lấy dữ liệu mới nhất
-            hanldeFetchCart();
-            window.dispatchEvent(new Event("cartUpdated"));
-
         } catch (err) {
-            console.error("Lỗi cập nhật số lượng trực tiếp: ", err);
-            toast.error("Đã xảy ra lỗi khi cập nhật số lượng.");
+            console.error("Lỗi cập nhật số lượng nhập tay: ", err);
+            hanldeFetchCart();
         }
     };
+
     useEffect(() => {
         if (cart?.id) {
             hanldeFetchCart();
@@ -607,14 +688,15 @@ const Cart = () => {
                                                 -
                                             </button>
 
-                                            <input
-                                                type="number"
-                                                value={item.quantity}
-                                                min="1"
-                                                readOnly
-                                                className="w-10 text-center text-sm bg-transparent"
-                                            />
-                                            {/* MỚI */}
+                                            {/*<input*/}
+                                            {/*    type="number"*/}
+                                            {/*    value={item.quantity}*/}
+                                            {/*    min="1"*/}
+                                            {/*    readOnly*/}
+                                            {/*    className="w-10 text-center text-sm bg-transparent"*/}
+                                            {/*/>*/}
+
+                                             {/*MỚI*/}
                                             {/*<input*/}
                                             {/*    type="number"*/}
                                             {/*    value={item.quantity}*/}
@@ -630,27 +712,57 @@ const Cart = () => {
                                             {/*    }}*/}
                                             {/*    className="w-12 text-center text-sm bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"*/}
                                             {/*/>*/}
-                                            {/*<button*/}
-                                            {/*    className="text-lg px-2 hover:bg-gray-100 rounded-full"*/}
-                                            {/*    onClick={() =>*/}
-                                            {/*        handleToggleIncrease(item.id, item.priceAtTime)*/}
-                                            {/*    }*/}
-                                            {/*>*/}
-                                            {/*    +*/}
-                                            {/*</button>*/}
+
+                                            {/* ĐOẠN CODE MỚI ĐÃ CẬP NHẬT */}
+                                            <input
+                                                type="number"
+                                                value={item.quantity}
+                                                min="0" // Cho phép gõ số 0
+
+                                                // Giả sử backend trả về số lượng kho ở biến 'item.stock'. Bạn hãy đổi tên biến này nếu cần.
+                                                onChange={(e) => handleQuantityChange(item.id, e.target.value, item.stock)}
+
+                                                onFocus={() => {
+                                                    // Trước khi người dùng sửa, lưu ngay số lượng và subtotal gốc vào bộ nhớ tạm
+                                                    setEditingItemData((prev) => ({
+                                                        ...prev,
+                                                        [item.id]: { quantity: item.quantity, subtotal: item.subtotal }
+                                                    }));
+                                                }}
+
+                                                onBlur={() => handleBlurQuantity(item)}
+
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        e.target.blur(); // Tự động kích hoạt hành động rời chuột (onBlur) khi nhấn Enter
+                                                    }
+                                                }}
+
+                                                // Class CSS giúp ẩn hoàn toàn 2 nút mũi tên tăng giảm mặc định của trình duyệt đối với kiểu input number
+                                                className="w-10 text-center text-sm bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            />
+
                                             <button
                                                 className="text-lg px-2 hover:bg-gray-100 rounded-full"
-                                                onClick={() => {
-                                                    // Thay 'item.stock' bằng tên biến tồn kho thực tế của bạn
-                                                    if (item.quantity >= (item.stock || 99)) {
-                                                        toast.error("Số lượng đã đạt giới hạn tồn kho!");
-                                                        return;
-                                                    }
-                                                    handleToggleIncrease(item.id, item.priceAtTime);
-                                                }}
+                                                onClick={() =>
+                                                    handleToggleIncrease(item.id, item.priceAtTime)
+                                                }
                                             >
                                                 +
                                             </button>
+                                            {/*<button*/}
+                                            {/*    className="text-lg px-2 hover:bg-gray-100 rounded-full"*/}
+                                            {/*    onClick={() => {*/}
+                                            {/*        // Thay 'item.stock' bằng tên biến tồn kho thực tế của bạn*/}
+                                            {/*        if (item.quantity >= (item.stock || 99)) {*/}
+                                            {/*            toast.error("Số lượng đã đạt giới hạn tồn kho!");*/}
+                                            {/*            return;*/}
+                                            {/*        }*/}
+                                            {/*        handleToggleIncrease(item.id, item.priceAtTime);*/}
+                                            {/*    }}*/}
+                                            {/*>*/}
+                                            {/*    +*/}
+                                            {/*</button>*/}
                                         </div>
                                     </div>
                                     <div className="text-right font-semibold text-lg">
