@@ -25,27 +25,58 @@ export default function Header() {
 // --- CHÈN THÊM ĐOẠN NÀY ĐỂ QUẢN LÝ SỐ LƯỢNG GIỎ HÀNG ---
     const [cartCount, setCartCount] = useState(0);
 
-    const fetchCartCount = async () => {
-        try {
-            const cartId = localStorage.getItem("cartId") || 3; // Lấy cartId từ localStorage hoặc mặc định là 3 như API của bạn
-            const token = localStorage.getItem("accessToken");
+    // const fetchCartCount = async () => {
+    //     try {
+    //         const cartId = localStorage.getItem("cartId") || 3; // Lấy cartId từ localStorage hoặc mặc định là 3 như API của bạn
+    //         const token = localStorage.getItem("accessToken");
+    //
+    //         const res = await fetch(`http://localhost:8080/cart-details/cart/${cartId}`, {
+    //             headers: {
+    //                 Authorization: `Bearer ${token}`,
+    //             },
+    //         });
+    //
+    //         if (res.ok) {
+    //             const data = await res.json();
+    //             // Tính tổng số lượng (quantity) của tất cả sản phẩm trong giỏ
+    //             const total = data.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    //             setCartCount(total);
+    //         }
+    //     } catch (err) {
+    //         console.error("Lỗi cập nhật số lượng giỏ hàng tại Header:", err);
+    //     }
+    // };
 
-            const res = await fetch(`http://localhost:8080/cart-details/cart/${cartId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+    // const fetchCartCount = async () => {
+    //     const token = localStorage.getItem("accessToken");
+    //
+    //     if (token) {
+    //         // TRƯỜNG HỢP 1: ĐÃ ĐĂNG NHẬP -> Gọi API lấy dữ liệu từ Database
+    //         try {
+    //             const cartId = localStorage.getItem("cartId") || 3; // Lấy từ localStorage hoặc mặc định bằng 3
+    //             const res = await fetch(`http://localhost:8080/cart-details/cart/${cartId}`, {
+    //                 headers: {
+    //                     "Authorization": `Bearer ${token}`
+    //                 }
+    //             });
+    //             if (res.ok) {
+    //                 const data = await res.json();
+    //                 // Cộng tổng quantity của toàn bộ sản phẩm trong giỏ hàng thật
+    //                 const totalQty = data.reduce((sum, item) => sum + item.quantity, 0);
+    //                 setCartCount(totalQty);
+    //             }
+    //         } catch (error) {
+    //             console.error("Lỗi khi lấy số lượng giỏ hàng thành viên:", error);
+    //         }
+    //     } else {
+    //         // TRƯỜNG HỢP 2: KHÁCH VÃNG LAI -> Tính tổng quantity trực tiếp từ LocalStorage
+    //         const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+    //         const totalQty = guestCart.reduce((sum, item) => sum + item.quantity, 0);
+    //         setCartCount(totalQty);
+    //     }
+    // };
 
-            if (res.ok) {
-                const data = await res.json();
-                // Tính tổng số lượng (quantity) của tất cả sản phẩm trong giỏ
-                const total = data.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-                setCartCount(total);
-            }
-        } catch (err) {
-            console.error("Lỗi cập nhật số lượng giỏ hàng tại Header:", err);
-        }
-    };
+
     // --------------------------------------------------------
   useEffect(() => {
     const sessionAlive = sessionStorage.getItem("session_alive");
@@ -64,12 +95,77 @@ export default function Header() {
     }
   }, []);
 
-    // Khởi chạy lấy số lượng khi load trang và lắng nghe sự kiện đồng bộ dữ liệu giữa các trang
+    const fetchCartCount = async () => {
+        const token = localStorage.getItem("accessToken");
+
+        if (token) {
+            // TRƯỜNG HỢP 1: ĐÃ ĐĂNG NHẬP -> Lấy tổng số lượng (totalQuantity) trực tiếp từ giỏ hàng User
+            try {
+                // Lấy User từ localStorage để đảm bảo có ID mới nhất
+                const storedUser = JSON.parse(localStorage.getItem("user"));
+
+                if (storedUser && storedUser.id) {
+                    const res = await fetch(`http://localhost:8080/carts/account/${storedUser.id}`, {
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        // Kế thừa ưu điểm từ đoạn code cũ bạn khóa: Lấy trực tiếp totalQuantity
+                        setCartCount(data.result?.totalQuantity || 0);
+                    }
+                }
+            } catch (error) {
+                console.error("Lỗi khi lấy số lượng giỏ hàng thành viên:", error);
+            }
+        } else {
+            // TRƯỜNG HỢP 2: KHÁCH VÃNG LAI -> Tính tổng quantity trực tiếp từ LocalStorage
+            const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+
+            // Ép kiểu Number() để chống lỗi cộng nối chuỗi thành "011"
+            const totalQty = guestCart.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+            setCartCount(totalQty);
+        }
+    };
+
     useEffect(() => {
+        // Chạy lần đầu tiên khi Header render
         fetchCartCount();
+
+        // Lắng nghe sự kiện (Được trigger khi Thêm/Sửa/Xóa/Gộp giỏ hàng)
         window.addEventListener("cartUpdated", fetchCartCount);
-        return () => window.removeEventListener("cartUpdated", fetchCartCount);
+        window.addEventListener("storage", fetchCartCount);
+
+        // Hủy lắng nghe khi Component bị dỡ bỏ
+        return () => {
+            window.removeEventListener("cartUpdated", fetchCartCount);
+            window.removeEventListener("storage", fetchCartCount);
+        };
     }, []);
+
+// // useEffect chuyên trách cập nhật số lượng giỏ hàng real-time
+//     useEffect(() => {
+//         // Chạy lần đầu tiên khi Header vừa hiển thị
+//         fetchCartCount();
+//
+//         // Lắng nghe sự kiện "cartUpdated" khi có thao tác Thêm/Sửa/Xóa từ trang chi tiết hoặc trang giỏ hàng
+//         window.addEventListener("cartUpdated", fetchCartCount);
+//
+//         // Lắng nghe thay đổi trạng thái đăng nhập/đăng xuất giữa các tabs/cửa sổ
+//         window.addEventListener("storage", fetchCartCount);
+//
+//         // Hủy lắng nghe khi Header bị hủy (tránh leak bộ nhớ)
+//         return () => {
+//             window.removeEventListener("cartUpdated", fetchCartCount);
+//             window.removeEventListener("storage", fetchCartCount);
+//         };
+//     }, []);
+//     // Khởi chạy lấy số lượng khi load trang và lắng nghe sự kiện đồng bộ dữ liệu giữa các trang
+//     useEffect(() => {
+//         fetchCartCount();
+//         window.addEventListener("cartUpdated", fetchCartCount);
+//         return () => window.removeEventListener("cartUpdated", fetchCartCount);
+//     }, []);
   // Kiểm tra đăng nhập
   useEffect(() => {
     const checkAuth = () => {
@@ -106,6 +202,10 @@ export default function Header() {
       const data = await res.json();
       console.log("Tài khoản đang login: ", data.result);
       setUser(data.result);
+        // BẮT BUỘC PHẢI CÓ DÒNG NÀY: Để lưu user info dùng cho việc đếm giỏ hàng
+        if (data.result && data.result.id) {
+            localStorage.setItem("user", JSON.stringify(data.result));
+        }
     } catch (error) {
       console.error("Lỗi fetch user", error);
     }
@@ -200,12 +300,19 @@ export default function Header() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    setIsLoggedIn(false);
-    window.dispatchEvent(new Event("logout"));
-    navigate("/");
-  };
+    const handleLogout = () => {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user"); // BỔ SUNG: Xóa sạch thông tin user để tránh xung đột dữ liệu cũ
+
+        setIsLoggedIn(false);
+
+        // BỔ SUNG QUAN TRỌNG: Bắn sự kiện "cartUpdated" để hàm fetchCartCount() lập tức chạy lại,
+        // chuyển số lượng hiển thị về giỏ hàng tạm của Guest (bằng 0 hoặc giỏ guest cũ nếu có).
+        window.dispatchEvent(new Event("cartUpdated"));
+        window.dispatchEvent(new Event("logout"));
+
+        navigate("/");
+    };
 
   const handleProductClick = (productId) => {
     setSearchQuery("");
@@ -359,43 +466,104 @@ export default function Header() {
             </div>
 
             {/* Auth */}
-            {isLoggedIn ? (
-              <>
-                <div className="relative group">
-                  <button className="text-gray-600 hover:text-red-500 transition">
-                    <User size={26} strokeWidth={2} />
-                  </button>
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    <Link
-                      to="/profile"
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-t-lg"
-                    >
-                      Profile
-                    </Link>
-                    <Link
-                      to="/wishlists"
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                    >
-                      Wish List
-                    </Link>
-                    <Link
-                      to="/orders"
-                      onClick={() => {
-                        localStorage.setItem("userId", user.id);
-                      }}
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                    >
-                      My Orders
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 rounded-b-lg flex items-center gap-2"
-                    >
-                      <LogOut size={16} />
-                      Logout
-                    </button>
+              {/* --- ĐOẠN ĐÃ SỬA: TÁCH BIỆT GIỎ HÀNG RA NGOÀI ĐIỀU KIỆN AUTH --- */}
+              {isLoggedIn ? (
+                  <div className="relative group">
+                      <button className="text-gray-600 hover:text-red-500 transition">
+                          <User size={26} strokeWidth={2} />
+                      </button>
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                          <Link to="/profile" className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-t-lg">
+                              Profile
+                          </Link>
+                          <Link to="/wishlists" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                              Wish List
+                          </Link>
+                          <Link
+                              to="/orders"
+                              onClick={() => localStorage.setItem("userId", user.id)}
+                              className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                          >
+                              My Orders
+                          </Link>
+                          <button
+                              onClick={handleLogout}
+                              className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 rounded-b-lg flex items-center gap-2"
+                          >
+                              <LogOut size={16} />
+                              Logout
+                          </button>
+                      </div>
                   </div>
-                </div>
+              ) : (
+                  <div className="hidden sm:flex items-center gap-3">
+                      <Link
+                          to="/login"
+                          className="px-5 py-2.5 bg-black text-white rounded-full font-medium text-sm hover:bg-red-500 transition"
+                      >
+                          Sign In
+                      </Link>
+                      <Link
+                          to="/register"
+                          className="px-5 py-2.5 border border-black text-black rounded-full font-medium text-sm hover:bg-black hover:text-white transition"
+                      >
+                          Sign Up
+                      </Link>
+                  </div>
+              )}
+
+              {/* ĐƯA GIỎ HÀNG RA ĐÂY (Luôn hiển thị song song cạnh cụm Login/User) */}
+              <Link to="/cart" className="relative p-2 text-gray-600 hover:text-red-500 transition flex items-center justify-center">
+                  <ShoppingCart size={26} strokeWidth={2} />
+
+                  {/* Chấm đỏ Badge số lượng tự động nhảy số */}
+                  {cartCount > 0 && (
+                      <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-red-600 rounded-full min-w-[18px] h-[18px] shadow-sm border border-white animate-pulse">
+                  {cartCount}
+                </span>
+                  )}
+              </Link>
+              {/* ------------------------------------------------------------- */}
+
+            {/*{isLoggedIn ? (*/}
+            {/*  <>*/}
+            {/*    <div className="relative group">*/}
+            {/*      <button className="text-gray-600 hover:text-red-500 transition">*/}
+            {/*        <User size={26} strokeWidth={2} />*/}
+            {/*      </button>*/}
+            {/*      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">*/}
+            {/*        <Link*/}
+            {/*          to="/profile"*/}
+            {/*          className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-t-lg"*/}
+            {/*        >*/}
+            {/*          Profile*/}
+            {/*        </Link>*/}
+            {/*        <Link*/}
+            {/*          to="/wishlists"*/}
+            {/*          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"*/}
+            {/*        >*/}
+            {/*          Wish List*/}
+            {/*        </Link>*/}
+            {/*        <Link*/}
+            {/*          to="/orders"*/}
+            {/*          onClick={() => {*/}
+            {/*            localStorage.setItem("userId", user.id);*/}
+            {/*          }}*/}
+            {/*          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"*/}
+            {/*        >*/}
+            {/*          My Orders*/}
+            {/*        </Link>*/}
+            {/*        <button*/}
+            {/*          onClick={handleLogout}*/}
+            {/*          className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 rounded-b-lg flex items-center gap-2"*/}
+            {/*        >*/}
+            {/*          <LogOut size={16} />*/}
+            {/*          Logout*/}
+            {/*        </button>*/}
+            {/*      </div>*/}
+            {/*    </div>*/}
+
+
                 {/*<button*/}
                 {/*  onClick={() => navigate("/cart")}*/}
                 {/*  className="text-gray-600 hover:text-red-500 transition relative"*/}
@@ -407,37 +575,49 @@ export default function Header() {
                 {/*</button>*/}
 
                   {/* Bọc icon giỏ hàng bằng Link chuyển trang, bắt buộc có lớp relative */}
-                  <Link
-                      to="/cart"
-                      className="relative p-2 text-gray-700 hover:text-black transition-colors flex items-center justify-center"
-                  >
-                      {/* Icon giỏ hàng từ thư viện lucide-react */}
-                      <ShoppingCart size={24} />
+    {/*              <Link*/}
+    {/*                  to="/cart"*/}
+    {/*                  className="relative p-2 text-gray-700 hover:text-black transition-colors flex items-center justify-center"*/}
+    {/*              >*/}
+    {/*                  /!* Icon giỏ hàng từ thư viện lucide-react *!/*/}
+    {/*                  <ShoppingCart size={24} />*/}
 
-                      {/* Chỉ hiển thị vòng tròn đỏ CHỨA SỐ nếu số lượng lớn hơn 0 */}
-                      {cartCount > 0 && (
-                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md border border-white animate-pulse">
-      {cartCount}
-    </span>
-                      )}
-                  </Link>
-              </>
-            ) : (
-              <div className="hidden sm:flex items-center gap-3">
-                <Link
-                  to="/login"
-                  className="px-5 py-2.5 bg-black text-white rounded-full font-medium text-sm hover:bg-red-500 transition"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  to="/register"
-                  className="px-5 py-2.5 border border-black text-black rounded-full font-medium text-sm hover:bg-black hover:text-white transition"
-                >
-                  Sign Up
-                </Link>
-              </div>
-            )}
+    {/*                  /!* Chỉ hiển thị vòng tròn đỏ CHỨA SỐ nếu số lượng lớn hơn 0 *!/*/}
+    {/*                  {cartCount > 0 && (*/}
+    {/*                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md border border-white animate-pulse">*/}
+    {/*  {cartCount}*/}
+    {/*</span>*/}
+    {/*                  )}*/}
+    {/*              </Link>*/}
+
+
+    {/*              <Link to="/cart" className="relative p-2 text-gray-700 hover:text-black transition flex items-center justify-center">*/}
+    {/*                  <ShoppingCart size={24} />*/}
+
+    {/*                  /!* Chấm đỏ Badge hiển thị số lượng, tự động ẩn nếu giỏ hàng bằng 0 *!/*/}
+    {/*                  {cartCount > 0 && (*/}
+    {/*                      <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full min-w-[18px] h-[18px] shadow-sm">*/}
+    {/*  {cartCount}*/}
+    {/*</span>*/}
+    {/*                  )}*/}
+    {/*              </Link>*/}
+    {/*          </>*/}
+    {/*        ) : (*/}
+    {/*          <div className="hidden sm:flex items-center gap-3">*/}
+    {/*            <Link*/}
+    {/*              to="/login"*/}
+    {/*              className="px-5 py-2.5 bg-black text-white rounded-full font-medium text-sm hover:bg-red-500 transition"*/}
+    {/*            >*/}
+    {/*              Sign In*/}
+    {/*            </Link>*/}
+    {/*            <Link*/}
+    {/*              to="/register"*/}
+    {/*              className="px-5 py-2.5 border border-black text-black rounded-full font-medium text-sm hover:bg-black hover:text-white transition"*/}
+    {/*            >*/}
+    {/*              Sign Up*/}
+    {/*            </Link>*/}
+    {/*          </div>*/}
+    {/*        )}*/}
 
             {/* Mobile Menu Button */}
             <button

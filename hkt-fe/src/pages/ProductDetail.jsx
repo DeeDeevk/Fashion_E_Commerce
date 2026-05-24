@@ -280,10 +280,53 @@ const ProductDetail = () => {
       return toast.warning("Please select a size");
     }
 
-    if (!user?.id) {
-      toast.warning("Vui lòng đăng nhập trước khi thêm vào giỏ hàng");
-      return toast.warning("Please Log in before add to cart");
-    }
+    // if (!user?.id) {
+    //   toast.warning("Vui lòng đăng nhập trước khi thêm vào giỏ hàng");
+    //   return toast.warning("Please Log in before add to cart");
+    // }
+
+      // XỬ LÝ CHO KHÁCH VÃNG LAI (GUEST)
+      if (!user?.id || !localStorage.getItem("accessToken")) {
+          // Tìm sizeDetailId từ dữ liệu product đã load sẵn để lưu lại dùng cho lúc Merge
+          let sizeDetailIdForGuest = null;
+          if (hasSizes && selectedSize) {
+              const foundSize = product.sizeDetails.find(sd => sd.sizeName === selectedSize || sd.size?.nameSize === selectedSize);
+              if (foundSize) sizeDetailIdForGuest = foundSize.id;
+          }
+          const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+          const newItem = {
+              id: `guest_${Date.now()}`, // Tạo ID tạm thời
+              productId: parseInt(id),
+              productName: product.name,
+              productImage: product.imageUrlFront,
+              sizeName: selectedSize,
+              sizeDetailId: sizeDetailIdForGuest,
+              quantity: quantity,
+              stock: currentStock, // THÊM DÒNG NÀY ĐỂ LƯU TỒN KHO THỰC TẾ
+              priceAtTime: product.costPrice,
+              subtotal: product.costPrice * quantity,
+              selected: true // Khách thêm vào là mặc định tick chọn luôn
+          };
+          // Kiểm tra xem sản phẩm & size này đã có trong giỏ guest chưa
+          const existingIndex = guestCart.findIndex(
+              (item) => item.productId === newItem.productId && item.sizeName === newItem.sizeName
+          );
+
+          if (existingIndex !== -1) {
+              guestCart[existingIndex].quantity += quantity;
+              guestCart[existingIndex].subtotal = guestCart[existingIndex].quantity * guestCart[existingIndex].priceAtTime;
+          } else {
+              guestCart.push(newItem);
+          }
+
+          localStorage.setItem("guestCart", JSON.stringify(guestCart));
+          setIsAddedToCart(true);
+          toast.success("Added items to Guest Cart!");
+          setTimeout(() => setIsAddedToCart(false), 2000);
+          window.dispatchEvent(new Event("cartUpdated"));
+          return; // Kết thúc sớm, không chạy xuống code gọi API bên dưới
+      }
+
     if (quantity < 1) return toast.warning("Quantity must be at least 1");
 
     setIsAddedToCart(true);

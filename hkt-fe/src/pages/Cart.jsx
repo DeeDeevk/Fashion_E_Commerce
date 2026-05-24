@@ -96,12 +96,20 @@ const Cart = () => {
         }
     };
 
+    // useEffect(() => {
+    //     //     if (user?.id) {
+    //     //         fetchCart();
+    //     //     }
+    //     // }, [user]);
     useEffect(() => {
         if (user?.id) {
             fetchCart();
+        } else {
+            // NẾU LÀ GUEST: Đọc thẳng từ LocalStorage
+            const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+            setCartItems(guestCart);
         }
     }, [user]);
-
     const hanldeFetchCart = async () => {
         try {
             const token = localStorage.getItem("accessToken");
@@ -135,6 +143,12 @@ const Cart = () => {
         );
 
         setCartItems(updatedItems);
+
+        // Dành cho Guest
+        if (!user?.id) {
+            localStorage.setItem("guestCart", JSON.stringify(updatedItems));
+            return;
+        }
 
         try {
             const token = localStorage.getItem("accessToken");
@@ -206,46 +220,47 @@ const Cart = () => {
     // };
 
     const handleToggleIncrease = async (cartDetailId, priceAtTime, currentQuantity, maxStock) => {
-    // const handleToggleIncrease = async (cartDetailId, priceAtTime) => {
-        // Nếu số lượng hiện tại đã đạt tối đa trong kho, không cho tăng nữa
-        if (currentQuantity >= maxStock) {
-            toast.error(`Sản phẩm này chỉ còn tối đa ${maxStock} sản phẩm trong kho!`);
+        // ĐƯA LÊN ĐẦU: Chặn tồn kho cho CẢ Guest VÀ User
+        const qty = Number(currentQuantity || 0);
+        const stock = Number(maxStock || 0);
+
+        if (maxStock !== undefined && maxStock !== null && qty >= stock) {
+            toast.error(`Sản phẩm này chỉ còn tối đa ${stock} sản phẩm trong kho!`);
             return;
         }
 
+        // XỬ LÝ NẾU LÀ GUEST
+        if (!user?.id) {
+            const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+            const updatedCart = guestCart.map(item => {
+                if (item.id === cartDetailId) {
+                    const newQty = Number(item.quantity) + 1;
+                    return { ...item, quantity: newQty, subtotal: newQty * item.priceAtTime };
+                }
+                return item;
+            });
+            localStorage.setItem("guestCart", JSON.stringify(updatedCart));
+            setCartItems(updatedCart);
+            window.dispatchEvent(new Event("cartUpdated"));
+            return;
+        }
+
+        // XỬ LÝ NẾU LÀ USER ĐÃ ĐĂNG NHẬP
         try {
             const token = localStorage.getItem("accessToken");
-            const res = await fetch(
-                `http://localhost:8080/cart-details/${cartDetailId}/increase-quantity`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
+            const res = await fetch(`http://localhost:8080/cart-details/${cartDetailId}/increase-quantity`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            });
 
             const data = await res.json();
+            setCartItems((prev) => prev.map((item) => item.id === cartDetailId ? { ...item, ...data } : item));
 
-            setCartItems((prev) =>
-                prev.map((item) =>
-                    item.id === cartDetailId ? { ...item, ...data } : item
-                )
-            );
-
-            // SỬA TẠI ĐÂY: Thêm quantity: 1 vào body để backend cập nhật totalQuantity của giỏ hàng
-            const resCart = await fetch(
-                `http://localhost:8080/carts/update/${cart.id}/increase`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ price: priceAtTime, quantity: 1 }),
-                }
-            );
+            const resCart = await fetch(`http://localhost:8080/carts/update/${cart.id}/increase`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ price: priceAtTime, quantity: 1 }),
+            });
 
             if (resCart.ok) {
                 window.dispatchEvent(new Event("cartUpdated"));
@@ -253,8 +268,7 @@ const Cart = () => {
         } catch (err) {
             console.error("Lỗi tăng số lượng: ", err);
         }
-    };
-    // const handleToggleDecrease = async (cartDetailId, priceAtTime) => {
+    };    // const handleToggleDecrease = async (cartDetailId, priceAtTime) => {
     //     try {
     //         const token = localStorage.getItem("accessToken");
     //         const res = await fetch(
@@ -369,12 +383,26 @@ const Cart = () => {
     // };
     // SỬA TẠI ĐÂY: Nhận thêm currentQuantity và subtotal từ giao diện truyền vào
     const handleToggleDecrease = async (cartDetailId, priceAtTime, currentQuantity, subtotal) => {
-        // Nếu số lượng hiện tại đang là 1, bấm trừ nghĩa là XÓA hẳn sản phẩm
-        if (currentQuantity <= 1) {
-            if (window.confirm("Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?")) {
-                handleDelete(cartDetailId, currentQuantity, subtotal);
+        // XỬ LÝ NẾU LÀ GUEST
+        if (!user?.id) {
+            if (currentQuantity <= 1) {
+                if (window.confirm("Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?")) {
+                    handleDelete(cartDetailId, currentQuantity, subtotal);
+                }
+                return;
             }
-            return; // Dừng hàm, không gọi API decrease nữa
+            const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+            const updatedCart = guestCart.map(item => {
+                if (item.id === cartDetailId) {
+                    const newQty = item.quantity - 1;
+                    return { ...item, quantity: newQty, subtotal: newQty * item.priceAtTime };
+                }
+                return item;
+            });
+            localStorage.setItem("guestCart", JSON.stringify(updatedCart));
+            setCartItems(updatedCart);
+            window.dispatchEvent(new Event("cartUpdated"));
+            return;
         }
 
         try {
@@ -420,6 +448,15 @@ const Cart = () => {
     };
 
     const handleDelete = async (cartDetailId, quantity, subtotal) => {
+        // XỬ LÝ NẾU LÀ GUEST
+        if (!user?.id) {
+            const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+            const updatedCart = guestCart.filter((item) => item.id !== cartDetailId);
+            localStorage.setItem("guestCart", JSON.stringify(updatedCart));
+            setCartItems(updatedCart);
+            window.dispatchEvent(new Event("cartUpdated"));
+            return;
+        }
         try {
             const token = localStorage.getItem("accessToken");
             const res = await fetch(
@@ -577,22 +614,40 @@ const Cart = () => {
     const handleBlurQuantity = async (item) => {
         let finalQty = parseInt(item.quantity, 10);
 
-        // XỬ LÝ KHI NHẬP BẰNG 0 HOẶC ĐỂ TRỐNG: Hiển thị thông báo xác nhận xóa sản phẩm
+        // XỬ LÝ KHI NHẬP BẰNG 0 HOẶC ĐỂ TRỐNG (Xóa sản phẩm)
         if (isNaN(finalQty) || finalQty <= 0) {
-            if (window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?")) {
-                // Lấy lại số lượng và subtotal gốc trước khi sửa từ state tạm editingItemData
-                const original = editingItemData[item.id] || { quantity: 1, subtotal: item.priceAtTime };
+            if (!user?.id) {
+                const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+                const updatedCart = guestCart.filter((i) => i.id !== item.id);
+                localStorage.setItem("guestCart", JSON.stringify(updatedCart));
+                setCartItems(updatedCart);
+                window.dispatchEvent(new Event("cartUpdated"));
+                return;
+            }
 
-                // Gọi hàm handleDelete có sẵn của bạn để xóa hoàn toàn trong DB và trừ tiền giỏ tổng
+            if (window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?")) {
+                const original = editingItemData[item.id] || { quantity: 1, subtotal: item.priceAtTime };
                 handleDelete(item.id, original.quantity, original.subtotal);
             } else {
-                // Nếu người dùng nhấn Hủy (Cancel) -> Gọi hàm tải lại giỏ hàng để khôi phục số lượng cũ
                 hanldeFetchCart();
             }
             return;
         }
 
-        // XỬ LÝ KHI NHẬP SỐ HỢP LỆ (> 0): Gọi API cập nhật số lượng lên hệ thống
+        // XỬ LÝ KHI NHẬP SỐ HỢP LỆ (> 0)
+        // 1. Nếu là Guest: Lưu vào LocalStorage
+        if (!user?.id) {
+            const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+            const updatedCart = guestCart.map((i) =>
+                i.id === item.id ? { ...i, quantity: finalQty, subtotal: finalQty * i.priceAtTime } : i
+            );
+            localStorage.setItem("guestCart", JSON.stringify(updatedCart));
+            setCartItems(updatedCart);
+            window.dispatchEvent(new Event("cartUpdated"));
+            return; // Rất quan trọng: Dừng lại tại đây, không gọi API bên dưới
+        }
+
+        // 2. Nếu là User đã đăng nhập: Gọi API cập nhật
         try {
             const token = localStorage.getItem("accessToken");
             const res = await fetch(`http://localhost:8080/cart-details/${item.id}/update-quantity`, {
@@ -606,7 +661,6 @@ const Cart = () => {
 
             const data = await res.json();
             if (res.ok) {
-                // Đồng bộ lại toàn bộ dữ liệu giỏ hàng chi tiết và tổng tiền
                 hanldeFetchCart();
                 if (user?.id) fetchCart();
                 window.dispatchEvent(new Event("cartUpdated"));
@@ -619,7 +673,6 @@ const Cart = () => {
             hanldeFetchCart();
         }
     };
-
     useEffect(() => {
         if (cart?.id) {
             hanldeFetchCart();
@@ -629,6 +682,11 @@ const Cart = () => {
     const summary = calculateSummary(cartItems);
 
     const handleCheckout = () => {
+        if (!user?.id) {
+            toast.info("Vui lòng đăng nhập để thanh toán!");
+            navigate("/login");
+            return;
+        }
         if (cartItems.length === 0) {
             toast.warning("Giỏ hàng rỗng!!!");
         } else if (select.length === 0) {
@@ -767,7 +825,8 @@ const Cart = () => {
                                             <button
                                                 className="text-lg px-2 hover:bg-gray-100 rounded-full"
                                                 onClick={() =>
-                                                    handleToggleIncrease(item.id, item.priceAtTime)
+                                                    // SỬA TẠI ĐÂY: Truyền bổ sung item.quantity và item.stock vào trong hàm
+                                                    handleToggleIncrease(item.id, item.priceAtTime, item.quantity, item.stock)
                                                 }
                                             >
                                                 +
