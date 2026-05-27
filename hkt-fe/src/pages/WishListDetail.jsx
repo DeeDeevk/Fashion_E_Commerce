@@ -4,9 +4,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner"; // THÊM DÒNG NÀY
 import ProductCard from "../components/ProductCard";
-import ChatBot from "../components/ChatBot"; 
-import Contact from "../components/Contact"; 
-const API_BASE = "http://localhost:8080";
+import ChatBot from "../components/ChatBot";
+import Contact from "../components/Contact";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const api = {
   async request(url, options = {}) {
@@ -59,7 +59,7 @@ export default function WishlistDetail() {
         const data = await api.get(`/wishlists/${id}/items`);
         const items = data.result || [];
 
-        const productList = items.map(item => ({
+        const productList = items.map((item) => ({
           id: item.productId,
           name: item.productName,
           imageUrlFront: item.productImage,
@@ -100,7 +100,7 @@ export default function WishlistDetail() {
 
     try {
       await api.del(`/wishlists/${id}/items/${productToDelete.id}`);
-      setProducts(prev => prev.filter(p => p.id !== productToDelete.id));
+      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
       toast.success(`"${productToDelete.name}" removed from wishlist`);
       closeDeleteModal();
     } catch (err) {
@@ -137,7 +137,9 @@ export default function WishlistDetail() {
 
       {/* ERROR */}
       {error && !loading && (
-        <div className="text-center py-20 text-red-600 font-medium">{error}</div>
+        <div className="text-center py-20 text-red-600 font-medium">
+          {error}
+        </div>
       )}
 
       {/* DANH SÁCH SẢN PHẨM */}
@@ -146,7 +148,9 @@ export default function WishlistDetail() {
           {products.length === 0 ? (
             <div className="text-center py-24 bg-gray-50 rounded-3xl">
               <div className="text-7xl mb-6">Empty</div>
-              <p className="text-xl text-gray-600 font-medium">Your wishlist is empty</p>
+              <p className="text-xl text-gray-600 font-medium">
+                Your wishlist is empty
+              </p>
               <button
                 onClick={() => navigate("/product")} // hoặc /product
                 className="mt-8 px-8 py-3.5 bg-black hover:bg-gray-900 text-white font-medium rounded-full transition inline-flex items-center shadow-lg"
@@ -176,7 +180,7 @@ export default function WishlistDetail() {
                     onClick={() => navigate(`/product/${product.id}`)}
                     className="cursor-pointer [&_button]:pointer-events-none"
                   >
-                    <ProductCard product={product} isInWishlist={true}/>
+                    <ProductCard product={product} isInWishlist={true} />
                   </div>
                 </div>
               ))}
@@ -188,19 +192,33 @@ export default function WishlistDetail() {
       {/* MODAL XÁC NHẬN XÓA */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={closeDeleteModal} />
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={closeDeleteModal}
+          />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-bold text-red-600">Remove from wishlist?</h2>
-              <button onClick={closeDeleteModal} className="p-2 hover:bg-gray-100 rounded-lg">
+              <h2 className="text-xl font-bold text-red-600">
+                Remove from wishlist?
+              </h2>
+              <button
+                onClick={closeDeleteModal}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
                 <X size={20} />
               </button>
             </div>
             <div className="p-6">
               <p className="text-gray-700">
-                Remove <strong className="text-black">"{productToDelete?.name}"</strong> from this wishlist?
+                Remove{" "}
+                <strong className="text-black">
+                  "{productToDelete?.name}"
+                </strong>{" "}
+                from this wishlist?
               </p>
-              <p className="text-sm text-gray-500 mt-3">You can add it back anytime.</p>
+              <p className="text-sm text-gray-500 mt-3">
+                You can add it back anytime.
+              </p>
             </div>
             <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
               <button
@@ -219,8 +237,8 @@ export default function WishlistDetail() {
           </div>
         </div>
       )}
-      <ChatBot/>
-      <Contact/>
+      <ChatBot />
+      <Contact />
     </div>
   );
 }

@@ -13,7 +13,10 @@ import {
 } from "lucide-react";
 import "../css/Home.css";
 import ChatBot from "../components/ChatBot";
-import Contact from "../components/Contact"
+import Contact from "../components/Contact";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const Home = () => {
   const navigate = useNavigate();
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -43,7 +46,7 @@ const Home = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch("http://localhost:8080/products");
+        const response = await fetch(`${BASE_URL}/products`);
         if (response.ok) {
           const data = await response.json();
           const productList = data.result || [];
@@ -103,7 +106,7 @@ const Home = () => {
   return (
     <div className="min-h-[80vh] relative">
       {/* ================== BANNER ================== */}
-     <section className="relative w-full h-[70vh] sm:h-[80vh] overflow-hidden">
+      <section className="relative w-full h-[70vh] sm:h-[80vh] overflow-hidden">
         {banners.map((banner, index) => (
           <img
             key={index}
@@ -375,7 +378,7 @@ const Home = () => {
       )}
       {/* CHATBOT  */}
       <ChatBot />
-      <Contact/>
+      <Contact />
     </div>
   );
 };

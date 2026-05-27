@@ -1,5 +1,19 @@
 import React, { useEffect, useState } from "react";
-import {BarChart,Bar,XAxis,YAxis,Tooltip,ResponsiveContainer,PieChart,Pie,Cell,LineChart,Line,} from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+} from "recharts";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Product Report Page with time filter, export CSV, and product selector for sales line chart
 export default function ProductReport() {
@@ -20,7 +34,10 @@ export default function ProductReport() {
     prior.setDate(now.getDate() - 30);
     setStartDate(prior.toISOString().slice(0, 10));
     setEndDate(now.toISOString().slice(0, 10));
-    loadBestSeller(prior.toISOString().slice(0, 10), now.toISOString().slice(0, 10));
+    loadBestSeller(
+      prior.toISOString().slice(0, 10),
+      now.toISOString().slice(0, 10),
+    );
     loadInventory();
   }, []);
 
@@ -33,7 +50,7 @@ export default function ProductReport() {
     setLoading(true);
     setError(null);
     try {
-      const url = buildQuery("http://localhost:8080/admin/reports/products/best-seller", {
+      const url = buildQuery(`${BASE_URL}/admin/reports/products/best-seller`, {
         limit: 10,
         start,
         end,
@@ -53,7 +70,7 @@ export default function ProductReport() {
 
   const loadInventory = async () => {
     try {
-      const res = await fetch("http://localhost:8080/admin/reports/products/inventory");
+      const res = await fetch(`${BASE_URL}/admin/reports/products/inventory`);
       if (!res.ok) throw new Error(`API lỗi: ${res.status}`);
       const data = await res.json();
       setInventory(data.result || data || []);
@@ -65,7 +82,11 @@ export default function ProductReport() {
   const loadSalesHistory = async (id, start = startDate, end = endDate) => {
     if (!id) return setSalesHistory([]);
     try {
-      const url = buildQuery(`http://localhost:8080/admin/reports/products/${id}/sales`, { days: 30, start, end });
+      const url = buildQuery(`${BASE_URL}/admin/reports/products/${id}/sales`, {
+        days: 30,
+        start,
+        end,
+      });
       const res = await fetch(url);
       if (!res.ok) throw new Error(`API lỗi: ${res.status}`);
       const data = await res.json();
@@ -79,7 +100,8 @@ export default function ProductReport() {
     // reload best seller with date range
     loadBestSeller(startDate, endDate);
     // if a product is selected, reload its history
-    if (selectedProduct) loadSalesHistory(selectedProduct.productId, startDate, endDate);
+    if (selectedProduct)
+      loadSalesHistory(selectedProduct.productId, startDate, endDate);
   };
 
   const handleSelectProduct = (productId) => {
@@ -90,8 +112,14 @@ export default function ProductReport() {
 
   const pieData = [
     { name: "Hết hàng", value: inventory.filter((i) => i.stock === 0).length },
-    { name: "Tồn thấp", value: inventory.filter((i) => i.stock < 10 && i.stock > 0).length },
-    { name: "Tồn ổn", value: inventory.filter((i) => i.stock >= 10 && i.stock <= 50).length },
+    {
+      name: "Tồn thấp",
+      value: inventory.filter((i) => i.stock < 10 && i.stock > 0).length,
+    },
+    {
+      name: "Tồn ổn",
+      value: inventory.filter((i) => i.stock >= 10 && i.stock <= 50).length,
+    },
     { name: "Tồn nhiều", value: inventory.filter((i) => i.stock > 50).length },
   ];
 
@@ -104,10 +132,17 @@ export default function ProductReport() {
     const headers = Object.keys(rows[0]);
     const csv = [headers.join(",")]
       .concat(
-        rows.map((r) => headers.map((h) => {
-          const cell = r[h] === null || r[h] === undefined ? "" : String(r[h]).replace(/"/g, '""');
-          return `"${cell}"`;
-        }).join(","))
+        rows.map((r) =>
+          headers
+            .map((h) => {
+              const cell =
+                r[h] === null || r[h] === undefined
+                  ? ""
+                  : String(r[h]).replace(/"/g, '""');
+              return `"${cell}"`;
+            })
+            .join(","),
+        ),
       )
       .join("\n");
 
@@ -149,10 +184,16 @@ export default function ProductReport() {
 
         <div>
           <label className="text-sm text-gray-600">Chọn sản phẩm</label>
-          <select className="border px-2 py-1 rounded w-64" onChange={(e) => handleSelectProduct(e.target.value)} value={selectedProduct?.productId || ""}>
+          <select
+            className="border px-2 py-1 rounded w-64"
+            onChange={(e) => handleSelectProduct(e.target.value)}
+            value={selectedProduct?.productId || ""}
+          >
             <option value="">-- Chọn (xem luồng doanh thu) --</option>
             {bestSeller.map((b) => (
-              <option key={b.productId} value={b.productId}>{b.name}</option>
+              <option key={b.productId} value={b.productId}>
+                {b.name}
+              </option>
             ))}
           </select>
         </div>
@@ -167,7 +208,12 @@ export default function ProductReport() {
 
           <button
             className="bg-green-600 text-white px-4 py-2 rounded"
-            onClick={() => exportCSV(bestSeller, `bestseller_${startDate || 'all'}_${endDate || 'all'}.csv`)}
+            onClick={() =>
+              exportCSV(
+                bestSeller,
+                `bestseller_${startDate || "all"}_${endDate || "all"}.csv`,
+              )
+            }
           >
             Xuất Excel (CSV)
           </button>
@@ -234,7 +280,9 @@ export default function ProductReport() {
       {/* Sales history chart */}
       {selectedProduct && (
         <div className="bg-white p-4 rounded shadow">
-          <h2 className="font-bold mb-3">Biểu đồ doanh số: {selectedProduct.name}</h2>
+          <h2 className="font-bold mb-3">
+            Biểu đồ doanh số: {selectedProduct.name}
+          </h2>
           {salesHistory && salesHistory.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={salesHistory}>
@@ -245,7 +293,9 @@ export default function ProductReport() {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="text-gray-500">Không có dữ liệu doanh số cho khoảng thời gian đã chọn.</div>
+            <div className="text-gray-500">
+              Không có dữ liệu doanh số cho khoảng thời gian đã chọn.
+            </div>
           )}
         </div>
       )}

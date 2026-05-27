@@ -1,6 +1,37 @@
-import { useState, useMemo, useEffect } from 'react';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { Calendar, DollarSign, ShoppingCart, Users, Package, Download, Filter, TrendingUp, TrendingDown, Clock, MapPin, CreditCard } from 'lucide-react';
+import { useState, useMemo, useEffect } from "react";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+} from "recharts";
+import {
+  Calendar,
+  DollarSign,
+  ShoppingCart,
+  Users,
+  Package,
+  Download,
+  Filter,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  MapPin,
+  CreditCard,
+} from "lucide-react";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Dashboard = () => {
   const token = localStorage.getItem("accessToken");
@@ -16,7 +47,7 @@ const Dashboard = () => {
   // -------------------------
   const [dateRange, setDateRange] = useState({
     start: new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0],
-    end: new Date().toISOString().split("T")[0]
+    end: new Date().toISOString().split("T")[0],
   });
 
   // -------------------------
@@ -26,10 +57,10 @@ const Dashboard = () => {
     const fetchStats = async () => {
       try {
         const res = await fetch(
-          `http://localhost:8080/admin/orders/daily?start=${dateRange.start}&end=${dateRange.end}`,
+          `${BASE_URL}/admin/orders/daily?start=${dateRange.start}&end=${dateRange.end}`,
           {
-            headers: { Authorization: `Bearer ${token}` }
-          }
+            headers: { Authorization: `Bearer ${token}` },
+          },
         );
 
         const data = await res.json();
@@ -47,8 +78,8 @@ const Dashboard = () => {
   // -------------------------
   const fetchTimeSlotData = async () => {
     try {
-      const res = await fetch("http://localhost:8080/admin/orders/time-slots", {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch(`${BASE_URL}/admin/orders/time-slots`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setTimeSlotData(await res.json());
     } catch (err) {
@@ -58,8 +89,8 @@ const Dashboard = () => {
 
   const fetchDetailedOrders = async () => {
     try {
-      const res = await fetch("http://localhost:8080/admin/orders/detailed-orders", {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch(`${BASE_URL}/admin/orders/detailed-orders`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setDetailedOrders(await res.json());
     } catch (err) {
@@ -69,8 +100,8 @@ const Dashboard = () => {
 
   const fetchRegionData = async () => {
     try {
-      const res = await fetch("http://localhost:8080/admin/customer-trading/regions", {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch(`${BASE_URL}/admin/customer-trading/regions`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setRegionData(await res.json());
     } catch (err) {
@@ -80,8 +111,8 @@ const Dashboard = () => {
 
   const fetchPaymentData = async () => {
     try {
-      const res = await fetch("http://localhost:8080/admin/invoices/payment", {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch(`${BASE_URL}/admin/invoices/payment`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setPaymentData(await res.json());
     } catch (err) {
@@ -114,15 +145,15 @@ const Dashboard = () => {
   const chartData = useMemo(() => {
     const dateList = getDateList(dateRange.start, dateRange.end);
 
-    return dateList.map(d => {
-      const found = allData.find(item => item.date === d);
+    return dateList.map((d) => {
+      const found = allData.find((item) => item.date === d);
       return (
         found || {
           date: d,
           revenue: 0,
           orders: 0,
           customers: 0,
-          products: 0
+          products: 0,
         }
       );
     });
@@ -149,13 +180,13 @@ const Dashboard = () => {
 
     return {
       start: start.toISOString().split("T")[0],
-      end: end.toISOString().split("T")[0]
+      end: end.toISOString().split("T")[0],
     };
   };
 
   const prevRange = getPrevRange();
   const prevData = allData.filter(
-    d => d.date >= prevRange.start && d.date <= prevRange.end
+    (d) => d.date >= prevRange.start && d.date <= prevRange.end,
   );
 
   const prevRevenue = prevData.reduce((s, i) => s + i.revenue, 0);
@@ -179,7 +210,7 @@ const Dashboard = () => {
   // -------------------------
   // 8. QUICK RANGE
   // -------------------------
-  const setQuickRange = type => {
+  const setQuickRange = (type) => {
     const today = new Date();
     let start = new Date();
 
@@ -207,7 +238,7 @@ const Dashboard = () => {
 
     setDateRange({
       start: start.toISOString().split("T")[0],
-      end: new Date().toISOString().split("T")[0]
+      end: new Date().toISOString().split("T")[0],
     });
   };
 
@@ -218,34 +249,38 @@ const Dashboard = () => {
     const headers = ["Date", "Revenue", "Orders", "Customers", "Products"];
 
     // 1. LỌC DỮ LIỆU: Chỉ lấy những ngày có doanh thu hoặc đơn hàng > 0
-    const activeData = chartData.filter(item => item.orders > 0 || item.revenue > 0);
+    const activeData = chartData.filter(
+      (item) => item.orders > 0 || item.revenue > 0,
+    );
 
     // 2. FORMAT LẠI DATA
-    const rows = activeData.map(i => {
+    const rows = activeData.map((i) => {
       // Chuyển đổi format date từ YYYY-MM-DD sang DD/MM/YYYY để Excel dễ đọc
       // Giả sử i.date đang là "2024-12-05"
       const [year, month, day] = i.date.split("-");
-      const formattedDate = `${day}/${month}/${year}`; 
+      const formattedDate = `${day}/${month}/${year}`;
 
       return [
         `"${formattedDate}"`, // Thêm ngoặc kép để Excel hiểu là text, tránh lỗi ####### hoặc tự tính toán
         i.revenue,
         i.orders,
         i.customers,
-        i.products
+        i.products,
       ];
     });
 
     // Nếu không có dữ liệu nào thì thông báo (tùy chọn)
     if (rows.length === 0) {
-      alert("Không có dữ liệu phát sinh trong khoảng thời gian này để xuất file.");
+      alert(
+        "Không có dữ liệu phát sinh trong khoảng thời gian này để xuất file.",
+      );
       return;
     }
 
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
 
     const blob = new Blob(["\ufeff" + csv], {
-      type: "text/csv;charset=utf-8;"
+      type: "text/csv;charset=utf-8;",
     });
 
     const link = document.createElement("a");
@@ -257,22 +292,30 @@ const Dashboard = () => {
   // Helper to translate status from Backend (Vietnamese) to Frontend (English)
   const getStatusLabel = (status) => {
     switch (status) {
-        case 'Hoàn thành': return 'Completed';
-        case 'Đang giao': return 'Shipping';
-        case 'Đang xử lý': return 'Processing';
-        case 'Hủy': return 'Cancelled';
-        default: return status;
+      case "Hoàn thành":
+        return "Completed";
+      case "Đang giao":
+        return "Shipping";
+      case "Đang xử lý":
+        return "Processing";
+      case "Hủy":
+        return "Cancelled";
+      default:
+        return status;
     }
   };
 
   // Helper to translate payment from Backend (Vietnamese) to Frontend (English)
   const getPaymentLabel = (payment) => {
     switch (payment) {
-        case 'Thẻ tín dụng': return 'Credit Card';
-        case 'Banking': return 'Bank Transfer';
-        default: return payment;
+      case "Thẻ tín dụng":
+        return "Credit Card";
+      case "Banking":
+        return "Bank Transfer";
+      default:
+        return payment;
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -287,11 +330,15 @@ const Dashboard = () => {
                 </div>
                 Revenue Dashboard
               </h1>
-              <p className="text-indigo-100 text-lg">Manage and analyze business performance</p>
+              <p className="text-indigo-100 text-lg">
+                Manage and analyze business performance
+              </p>
             </div>
             <div className="text-right">
               <p className="text-indigo-100 text-sm mb-1">Last updated</p>
-              <p className="text-xl font-semibold">{new Date().toLocaleTimeString('en-US')}</p>
+              <p className="text-xl font-semibold">
+                {new Date().toLocaleTimeString("en-US")}
+              </p>
             </div>
           </div>
         </div>
@@ -309,12 +356,12 @@ const Dashboard = () => {
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
             {[
-              { label: 'Today', action: 'today' },
-              { label: 'Yesterday', action: 'yesterday' },
-              { label: '7 Days', action: '7days' },
-              { label: '30 Days', action: '30days' },
-              { label: 'This Month', action: 'thisMonth' },
-              { label: 'This Year', action: 'thisYear' }
+              { label: "Today", action: "today" },
+              { label: "Yesterday", action: "yesterday" },
+              { label: "7 Days", action: "7days" },
+              { label: "30 Days", action: "30days" },
+              { label: "This Month", action: "thisMonth" },
+              { label: "This Year", action: "thisYear" },
             ].map((btn) => (
               <button
                 key={btn.action}
@@ -328,20 +375,28 @@ const Dashboard = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">From Date</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                From Date
+              </label>
               <input
                 type="date"
                 value={dateRange.start}
-                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, start: e.target.value })
+                }
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">To Date</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                To Date
+              </label>
               <input
                 type="date"
                 value={dateRange.end}
-                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, end: e.target.value })
+                }
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
               />
             </div>
@@ -355,13 +410,23 @@ const Dashboard = () => {
               <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition">
                 <DollarSign className="w-7 h-7" />
               </div>
-              <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${revenueGrowth >= 0 ? 'bg-green-400/30' : 'bg-red-400/30'}`}>
-                {revenueGrowth >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <div
+                className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${revenueGrowth >= 0 ? "bg-green-400/30" : "bg-red-400/30"}`}
+              >
+                {revenueGrowth >= 0 ? (
+                  <TrendingUp className="w-3 h-3" />
+                ) : (
+                  <TrendingDown className="w-3 h-3" />
+                )}
                 {Math.abs(revenueGrowth).toFixed(1)}%
               </div>
             </div>
-            <p className="text-blue-100 text-sm font-medium mb-2">Total Revenue</p>
-            <p className="text-3xl font-bold mb-1">{formatCurrency(totalRevenue)}</p>
+            <p className="text-blue-100 text-sm font-medium mb-2">
+              Total Revenue
+            </p>
+            <p className="text-3xl font-bold mb-1">
+              {formatCurrency(totalRevenue)}
+            </p>
             <p className="text-blue-200 text-xs">vs. previous period</p>
           </div>
 
@@ -370,13 +435,23 @@ const Dashboard = () => {
               <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition">
                 <ShoppingCart className="w-7 h-7" />
               </div>
-              <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${ordersGrowth >= 0 ? 'bg-green-400/30' : 'bg-red-400/30'}`}>
-                {ordersGrowth >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <div
+                className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${ordersGrowth >= 0 ? "bg-green-400/30" : "bg-red-400/30"}`}
+              >
+                {ordersGrowth >= 0 ? (
+                  <TrendingUp className="w-3 h-3" />
+                ) : (
+                  <TrendingDown className="w-3 h-3" />
+                )}
                 {Math.abs(ordersGrowth).toFixed(1)}%
               </div>
             </div>
-            <p className="text-green-100 text-sm font-medium mb-2">Total Orders</p>
-            <p className="text-3xl font-bold mb-1">{totalOrders.toLocaleString()}</p>
+            <p className="text-green-100 text-sm font-medium mb-2">
+              Total Orders
+            </p>
+            <p className="text-3xl font-bold mb-1">
+              {totalOrders.toLocaleString()}
+            </p>
             <p className="text-green-200 text-xs">Orders this period</p>
           </div>
 
@@ -389,8 +464,12 @@ const Dashboard = () => {
                 Active
               </div>
             </div>
-            <p className="text-purple-100 text-sm font-medium mb-2">Customers</p>
-            <p className="text-3xl font-bold mb-1">{totalCustomers.toLocaleString()}</p>
+            <p className="text-purple-100 text-sm font-medium mb-2">
+              Customers
+            </p>
+            <p className="text-3xl font-bold mb-1">
+              {totalCustomers.toLocaleString()}
+            </p>
             <p className="text-purple-200 text-xs">Active customers</p>
           </div>
 
@@ -403,8 +482,12 @@ const Dashboard = () => {
                 Avg: {formatCurrency(avgOrderValue)}
               </div>
             </div>
-            <p className="text-orange-100 text-sm font-medium mb-2">Products Sold</p>
-            <p className="text-3xl font-bold mb-1">{totalProducts.toLocaleString()}</p>
+            <p className="text-orange-100 text-sm font-medium mb-2">
+              Products Sold
+            </p>
+            <p className="text-3xl font-bold mb-1">
+              {totalProducts.toLocaleString()}
+            </p>
             <p className="text-orange-200 text-xs">Avg. Order Value</p>
           </div>
         </div>
@@ -412,10 +495,16 @@ const Dashboard = () => {
         {/* Area Chart - Revenue Trend */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">📊 Revenue Trend</h2>
+            <h2 className="text-xl font-bold text-gray-800">
+              📊 Revenue Trend
+            </h2>
             <div className="flex gap-2">
-              <button className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-medium text-sm">Revenue</button>
-              <button className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm">Orders</button>
+              <button className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-medium text-sm">
+                Revenue
+              </button>
+              <button className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm">
+                Orders
+              </button>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={350}>
@@ -431,20 +520,40 @@ const Dashboard = () => {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="displayDate" stroke="#6b7280" style={{ fontSize: '12px' }} />
-              <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+              <XAxis
+                dataKey="displayDate"
+                stroke="#6b7280"
+                style={{ fontSize: "12px" }}
+              />
+              <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                  backgroundColor: "rgba(255, 255, 255, 0.95)",
+                  border: "none",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
                 }}
                 formatter={(value) => formatCurrency(value)}
               />
               <Legend />
-              <Area type="monotone" dataKey="revenue" stroke="#6366f1" fillOpacity={1} fill="url(#colorRevenue)" name="Revenue" strokeWidth={3} />
-              <Area type="monotone" dataKey="orders" stroke="#10b981" fillOpacity={1} fill="url(#colorOrders)" name="Orders" strokeWidth={2} />
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                stroke="#6366f1"
+                fillOpacity={1}
+                fill="url(#colorRevenue)"
+                name="Revenue"
+                strokeWidth={3}
+              />
+              <Area
+                type="monotone"
+                dataKey="orders"
+                stroke="#10b981"
+                fillOpacity={1}
+                fill="url(#colorOrders)"
+                name="Orders"
+                strokeWidth={2}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -455,35 +564,49 @@ const Dashboard = () => {
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6">
             <div className="flex items-center gap-3 mb-6">
               <CreditCard className="w-6 h-6 text-pink-600" />
-              <h2 className="text-xl font-bold text-gray-800">💳 Payment Methods</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                💳 Payment Methods
+              </h2>
             </div>
             <div className="space-y-4">
               {paymentData.map((payment, idx) => {
-                const percent = (payment.value);
+                const percent = payment.value;
                 // Simple assumption to map common Vietnamese terms if they come from backend, otherwise display as is
                 const displayName = getPaymentLabel(payment.name);
 
                 return (
-                  <div key={idx} className="group hover:scale-[1.02] transition-transform">
+                  <div
+                    key={idx}
+                    className="group hover:scale-[1.02] transition-transform"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: payment.color }}></div>
-                        <span className="font-semibold text-gray-700">{displayName}</span>
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: payment.color }}
+                        ></div>
+                        <span className="font-semibold text-gray-700">
+                          {displayName}
+                        </span>
                       </div>
-                      <span className="text-sm font-bold text-gray-800">{payment.value}%</span>
+                      <span className="text-sm font-bold text-gray-800">
+                        {payment.value}%
+                      </span>
                     </div>
                     <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className="absolute h-full rounded-full transition-all duration-500"
                         style={{
                           width: `${percent}%`,
-                          background: `linear-gradient(90deg, ${payment.color}, ${payment.color}dd)`
+                          background: `linear-gradient(90deg, ${payment.color}, ${payment.color}dd)`,
                         }}
                       ></div>
                     </div>
                     <div className="flex justify-between mt-1 text-xs text-gray-500">
                       <span>{payment.orders.toLocaleString()} orders</span>
-                      <span className="font-semibold">{formatCurrency(payment.revenue)}</span>
+                      <span className="font-semibold">
+                        {formatCurrency(payment.revenue)}
+                      </span>
                     </div>
                   </div>
                 );
@@ -495,23 +618,34 @@ const Dashboard = () => {
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6">
             <div className="flex items-center gap-3 mb-6">
               <Clock className="w-6 h-6 text-amber-600" />
-              <h2 className="text-xl font-bold text-gray-800">⏰ Peak Shopping Hours</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                ⏰ Peak Shopping Hours
+              </h2>
             </div>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={timeSlotData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="time" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+                <XAxis
+                  dataKey="time"
+                  stroke="#6b7280"
+                  style={{ fontSize: "12px" }}
+                />
+                <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    backgroundColor: "rgba(255, 255, 255, 0.95)",
+                    border: "none",
+                    borderRadius: "12px",
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
                   }}
                   formatter={(value) => formatCurrency(value)}
                 />
-                <Bar dataKey="revenue" fill="#f59e0b" radius={[8, 8, 0, 0]} name="Revenue" />
+                <Bar
+                  dataKey="revenue"
+                  fill="#f59e0b"
+                  radius={[8, 8, 0, 0]}
+                  name="Revenue"
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -521,19 +655,30 @@ const Dashboard = () => {
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 mb-6">
           <div className="flex items-center gap-3 mb-6">
             <MapPin className="w-6 h-6 text-red-600" />
-            <h2 className="text-xl font-bold text-gray-800">🗺️ Revenue by Region</h2>
+            <h2 className="text-xl font-bold text-gray-800">
+              🗺️ Revenue by Region
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {regionData.map((region, idx) => (
-              <div key={idx} className="group p-4 bg-linear-to-br from-gray-50 to-gray-100 rounded-xl hover:shadow-lg transition-all hover:scale-105">
+              <div
+                key={idx}
+                className="group p-4 bg-linear-to-br from-gray-50 to-gray-100 rounded-xl hover:shadow-lg transition-all hover:scale-105"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-gray-800">{region.name}</h3>
-                  <div className={`text-xs font-bold px-2 py-1 rounded-full ${region.growth >= 10 ? 'bg-green-100 text-green-700' : region.growth >= 5 ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-700'}`}>
+                  <div
+                    className={`text-xs font-bold px-2 py-1 rounded-full ${region.growth >= 10 ? "bg-green-100 text-green-700" : region.growth >= 5 ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-700"}`}
+                  >
                     +{region.growth}%
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-indigo-600 mb-1">{formatCurrency(region.revenue)}</p>
-                <p className="text-sm text-gray-600">{region.orders.toLocaleString()} orders</p>
+                <p className="text-2xl font-bold text-indigo-600 mb-1">
+                  {formatCurrency(region.revenue)}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {region.orders.toLocaleString()} orders
+                </p>
               </div>
             ))}
           </div>
@@ -541,7 +686,9 @@ const Dashboard = () => {
         {/* Detailed Orders Table */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-            <h2 className="text-xl font-bold text-gray-800">📋 Detailed Orders</h2>
+            <h2 className="text-xl font-bold text-gray-800">
+              📋 Detailed Orders
+            </h2>
             <div className="flex gap-3">
               <button
                 onClick={exportToCSV}
@@ -557,57 +704,93 @@ const Dashboard = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-indigo-100">
-                  <th className="text-left py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">Order ID</th>
-                  <th className="text-left py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">Customer</th>
-                  <th className="text-right py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">Total</th>
-                  <th className="text-center py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">Payment</th>
-                  <th className="text-center py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">Status</th>
-                  <th className="text-center py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">Date</th>
-                  <th className="text-center py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">Items</th>
+                  <th className="text-left py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">
+                    Order ID
+                  </th>
+                  <th className="text-left py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">
+                    Customer
+                  </th>
+                  <th className="text-right py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">
+                    Total
+                  </th>
+                  <th className="text-center py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">
+                    Payment
+                  </th>
+                  <th className="text-center py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">
+                    Status
+                  </th>
+                  <th className="text-center py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">
+                    Date
+                  </th>
+                  <th className="text-center py-4 px-4 font-bold text-gray-700 bg-linear-to-r from-indigo-50 to-purple-50">
+                    Items
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {detailedOrders.map((order, index) => (
-                  <tr key={index} className="border-b border-gray-100 hover:bg-linear-to-r hover:from-blue-50 hover:to-indigo-50 transition-all group">
+                  <tr
+                    key={index}
+                    className="border-b border-gray-100 hover:bg-linear-to-r hover:from-blue-50 hover:to-indigo-50 transition-all group"
+                  >
                     <td className="py-4 px-4">
-                      <span className="font-mono font-bold text-indigo-600 group-hover:text-indigo-700">{order.id}</span>
+                      <span className="font-mono font-bold text-indigo-600 group-hover:text-indigo-700">
+                        {order.id}
+                      </span>
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-linear-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
                           {order.customer.charAt(0)}
                         </div>
-                        <span className="text-gray-700 font-medium">{order.customer}</span>
+                        <span className="text-gray-700 font-medium">
+                          {order.customer}
+                        </span>
                       </div>
                     </td>
                     <td className="py-4 px-4 text-right">
-                      <span className="font-bold text-lg text-indigo-600">{formatCurrency(order.total)}</span>
+                      <span className="font-bold text-lg text-indigo-600">
+                        {formatCurrency(order.total)}
+                      </span>
                     </td>
                     <td className="py-4 px-4 text-center">
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${order.payment === 'Momo' ? 'bg-pink-100 text-pink-700' :
-                        order.payment === 'Banking' ? 'bg-blue-100 text-blue-700' :
-                          order.payment === 'COD' ? 'bg-green-100 text-green-700' :
-                            'bg-orange-100 text-orange-700'
-                        }`}>
-                        {order.payment === 'Momo' && '📱'}
-                        {order.payment === 'Banking' && '🏦'}
-                        {order.payment === 'COD' && '💵'}
-                        {order.payment === 'Thẻ tín dụng' && '💳'}
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                          order.payment === "Momo"
+                            ? "bg-pink-100 text-pink-700"
+                            : order.payment === "Banking"
+                              ? "bg-blue-100 text-blue-700"
+                              : order.payment === "COD"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-orange-100 text-orange-700"
+                        }`}
+                      >
+                        {order.payment === "Momo" && "📱"}
+                        {order.payment === "Banking" && "🏦"}
+                        {order.payment === "COD" && "💵"}
+                        {order.payment === "Thẻ tín dụng" && "💳"}
                         {getPaymentLabel(order.payment)}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center">
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${order.status === 'Hoàn thành' ? 'bg-green-100 text-green-700' :
-                        order.status === 'Đang giao' ? 'bg-blue-100 text-blue-700' :
-                          'bg-yellow-100 text-yellow-700'
-                        }`}>
-                        {order.status === 'Hoàn thành' && '✓'}
-                        {order.status === 'Đang giao' && '🚚'}
-                        {order.status === 'Đang xử lý' && '⏳'}
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                          order.status === "Hoàn thành"
+                            ? "bg-green-100 text-green-700"
+                            : order.status === "Đang giao"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-yellow-100 text-yellow-700"
+                        }`}
+                      >
+                        {order.status === "Hoàn thành" && "✓"}
+                        {order.status === "Đang giao" && "🚚"}
+                        {order.status === "Đang xử lý" && "⏳"}
                         {getStatusLabel(order.status)}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center text-gray-600 text-sm">{order.date}</td>
+                    <td className="py-4 px-4 text-center text-gray-600 text-sm">
+                      {order.date}
+                    </td>
                     <td className="py-4 px-4 text-center">
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm">
                         {order.items}
@@ -620,20 +803,39 @@ const Dashboard = () => {
           </div>
 
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-            <p className="text-sm text-gray-600">Showing <span className="font-bold text-gray-800">1-{detailedOrders.length}</span> of <span className="font-bold text-gray-800">{totalOrders}</span> total orders</p>
+            <p className="text-sm text-gray-600">
+              Showing{" "}
+              <span className="font-bold text-gray-800">
+                1-{detailedOrders.length}
+              </span>{" "}
+              of <span className="font-bold text-gray-800">{totalOrders}</span>{" "}
+              total orders
+            </p>
             <div className="flex gap-2">
-              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">Prev</button>
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition">1</button>
-              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">2</button>
-              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">3</button>
-              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">Next</button>
+              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">
+                Prev
+              </button>
+              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition">
+                1
+              </button>
+              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">
+                2
+              </button>
+              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">
+                3
+              </button>
+              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">
+                Next
+              </button>
             </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="mt-8 pb-8 text-center">
-          <p className="text-gray-500 text-sm">© 2024 Revenue Dashboard - Developed by Your Company</p>
+          <p className="text-gray-500 text-sm">
+            © 2024 Revenue Dashboard - Developed by Your Company
+          </p>
         </div>
       </div>
     </div>
