@@ -1,6 +1,8 @@
 // src/components/AdminChatBot.jsx
 import { useState, useEffect, useRef } from "react";
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const AdminChatBot = () => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -17,64 +19,69 @@ const AdminChatBot = () => {
   }, [messages, loading]);
 
   // ================== LOCALSTORAGE CHO ADMIN - F5 KHÔNG MẤT CHAT ==================
-useEffect(() => {
-  const saved = localStorage.getItem("kh3t_admin_chat_history");
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setMessages(parsed);
-        return;
+  useEffect(() => {
+    const saved = localStorage.getItem("kh3t_admin_chat_history");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+          return;
+        }
+      } catch (e) {
+        console.error("Lỗi parse admin chat history:", e);
+        localStorage.removeItem("kh3t_admin_chat_history");
       }
-    } catch (e) {
-      console.error("Lỗi parse admin chat history:", e);
-      localStorage.removeItem("kh3t_admin_chat_history");
     }
-  }
 
-  // Chỉ chào nếu thật sự không có lịch sử
-  setMessages([
-    {
-      sender: "bot",
-      text: "Chào sếp! Em là trợ lý CEO của HKT Shop đây ạ. Sếp cần báo cáo gì hôm nay?"
+    // Chỉ chào nếu thật sự không có lịch sử
+    setMessages([
+      {
+        sender: "bot",
+        text: "Chào sếp! Em là trợ lý CEO của HKT Shop đây ạ. Sếp cần báo cáo gì hôm nay?",
+      },
+    ]);
+  }, []); // Chỉ chạy 1 lần khi mount
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem("kh3t_admin_chat_history", JSON.stringify(messages));
     }
-  ]);
-}, []); // Chỉ chạy 1 lần khi mount
-useEffect(() => {
-  if (messages.length > 0) {
-    localStorage.setItem("kh3t_admin_chat_history", JSON.stringify(messages));
-  }
-}, [messages]);
-
+  }, [messages]);
 
   const send = async () => {
     if (!input.trim() || loading) return;
 
     const userMsg = input.trim();
-    setMessages(prev => [...prev, { sender: "user", text: userMsg }]);
+    setMessages((prev) => [...prev, { sender: "user", text: userMsg }]);
     setInput("");
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8080/admin-chat/ask", {
+      const res = await fetch(`${BASE_URL}/admin-chat/ask`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
         },
-        body: JSON.stringify({ prompt: userMsg })
+        body: JSON.stringify({ prompt: userMsg }),
       });
 
       const reply = await res.text();
-      setMessages(prev => [...prev, {
-        sender: "bot",
-        text: reply || "Em đang phân tích dữ liệu giúp sếp..."
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: reply || "Em đang phân tích dữ liệu giúp sếp...",
+        },
+      ]);
     } catch (err) {
-      setMessages(prev => [...prev, {
-        sender: "bot",
-        text: "Lỗi kết nối rồi sếp ơi, em đang thử lại..."
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: "Lỗi kết nối rồi sếp ơi, em đang thử lại...",
+        },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -94,15 +101,25 @@ useEffect(() => {
         onClick={() => setOpen(!open)}
         className="fixed right-6 bottom-6 z-50 w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 hover:shadow-purple-500/50"
       >
-       {open ? (
-  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-) : (
-  <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-  </svg>
-)}
+        {open ? (
+          <svg
+            className="w-8 h-8"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        ) : (
+          <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+          </svg>
+        )}
       </button>
 
       {/* Cửa sổ chat Admin - SIÊU ĐẸP, SIÊU SANG */}
@@ -111,10 +128,10 @@ useEffect(() => {
           {/* Header - Gradient tím sang trọng */}
           <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white p-4 flex items-center gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30 overflow-hidden">
-  <svg className="w-9 h-9" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-  </svg>
-</div>
+              <svg className="w-9 h-9" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+              </svg>
+            </div>
             <div>
               <h3 className="font-bold text-lg">Trợ Lý CEO</h3>
               <p className="text-xs opacity-90 flex items-center gap-2">

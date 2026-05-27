@@ -2,7 +2,7 @@ import React from "react";
 import { X, Plus, Heart } from "lucide-react";
 import { toast } from "sonner";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const api = {
   get: async (url) => {
@@ -44,7 +44,12 @@ const api = {
   },
 };
 
-export default function WishlistSelectorModal({ productId, isOpen, onClose, onSuccess }) {
+export default function WishlistSelectorModal({
+  productId,
+  isOpen,
+  onClose,
+  onSuccess,
+}) {
   const [wishlists, setWishlists] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [savingIds, setSavingIds] = React.useState(new Set());
@@ -68,11 +73,14 @@ export default function WishlistSelectorModal({ productId, isOpen, onClose, onSu
             try {
               const check = await api.get(`/wishlists/${wl.id}/items`);
               const items = check.result || [];
-              return { ...wl, hasProduct: items.some(i => i.productId === productId) };
+              return {
+                ...wl,
+                hasProduct: items.some((i) => i.productId === productId),
+              };
             } catch {
               return { ...wl, hasProduct: false };
             }
-          })
+          }),
         );
         setWishlists(updated);
       } catch (err) {
@@ -85,10 +93,14 @@ export default function WishlistSelectorModal({ productId, isOpen, onClose, onSu
     fetchWishlists();
   }, [isOpen, productId]);
 
-  const toggleProductInWishlist = async (wishlistId, currentHasProduct, wishlistName) => {
+  const toggleProductInWishlist = async (
+    wishlistId,
+    currentHasProduct,
+    wishlistName,
+  ) => {
     if (savingIds.has(wishlistId)) return;
 
-    setSavingIds(prev => new Set(prev).add(wishlistId));
+    setSavingIds((prev) => new Set(prev).add(wishlistId));
 
     try {
       if (currentHasProduct) {
@@ -99,17 +111,17 @@ export default function WishlistSelectorModal({ productId, isOpen, onClose, onSu
         toast.success(`Saved to "${wishlistName}"`);
       }
 
-      setWishlists(prev =>
-        prev.map(wl =>
-          wl.id === wishlistId ? { ...wl, hasProduct: !currentHasProduct } : wl
-        )
+      setWishlists((prev) =>
+        prev.map((wl) =>
+          wl.id === wishlistId ? { ...wl, hasProduct: !currentHasProduct } : wl,
+        ),
       );
 
       onSuccess?.();
     } catch (err) {
       toast.error(err.message || "Có lỗi xảy ra");
     } finally {
-      setSavingIds(prev => {
+      setSavingIds((prev) => {
         const next = new Set(prev);
         next.delete(wishlistId);
         return next;
@@ -130,8 +142,10 @@ export default function WishlistSelectorModal({ productId, isOpen, onClose, onSu
       });
 
       const newWishlist = data.result;
-      setWishlists(prev => [...prev, { ...newWishlist, hasProduct: true }]);
-      toast.success(`Created wishlist "${newWishlist.name}" and saved product to wishlist`);
+      setWishlists((prev) => [...prev, { ...newWishlist, hasProduct: true }]);
+      toast.success(
+        `Created wishlist "${newWishlist.name}" and saved product to wishlist`,
+      );
 
       setNewName("");
       setNewDesc("");
@@ -153,7 +167,10 @@ export default function WishlistSelectorModal({ productId, isOpen, onClose, onSu
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b">
           <h3 className="text-lg font-semibold">Save to wishlist</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition">
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-full transition"
+          >
             <X size={20} />
           </button>
         </div>
@@ -203,14 +220,18 @@ export default function WishlistSelectorModal({ productId, isOpen, onClose, onSu
               {wishlists.map((wl) => (
                 <button
                   key={wl.id}
-                  onClick={() => toggleProductInWishlist(wl.id, wl.hasProduct, wl.name)}
+                  onClick={() =>
+                    toggleProductInWishlist(wl.id, wl.hasProduct, wl.name)
+                  }
                   disabled={savingIds.has(wl.id)}
                   className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition disabled:opacity-70 text-left"
                 >
                   <div className="flex-1">
                     <div className="font-medium">{wl.name}</div>
                     {wl.description && (
-                      <div className="text-xs text-gray-500 mt-1">{wl.description}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {wl.description}
+                      </div>
                     )}
                     <div className="text-xs text-gray-400 mt-1">
                       {wl.itemCount || 0} product
@@ -222,7 +243,9 @@ export default function WishlistSelectorModal({ productId, isOpen, onClose, onSu
                     <Heart
                       size={24}
                       fill={wl.hasProduct ? "#ef4444" : "none"}
-                      className={wl.hasProduct ? "text-red-500" : "text-gray-400"}
+                      className={
+                        wl.hasProduct ? "text-red-500" : "text-gray-400"
+                      }
                     />
                   )}
                 </button>

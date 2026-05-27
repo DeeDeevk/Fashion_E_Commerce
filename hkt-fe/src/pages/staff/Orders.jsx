@@ -10,6 +10,9 @@ import {
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function Orders() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
@@ -27,7 +30,7 @@ export default function Orders() {
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:8080/orders");
+      const res = await fetch(`${BASE_URL}/orders`);
       if (!res.ok) {
         alert("Cannot load orders");
         return;
@@ -111,7 +114,7 @@ export default function Orders() {
   const handleCreateInvoice = async (orderId) => {
     const token = localStorage.getItem("accessToken");
 
-    const res = await fetch("http://localhost:8080/invoices", {
+    const res = await fetch(`${BASE_URL}/invoices`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -134,22 +137,22 @@ export default function Orders() {
 
   const handleConfirmOrder = async (orderId) => {
     const order = orders.find((o) => o.id === orderId);
-    if (!order) { alert("Order not found!"); return; }
+    if (!order) {
+      alert("Order not found!");
+      return;
+    }
     if (!window.confirm("Confirm this order?")) return;
 
     try {
       const token = localStorage.getItem("accessToken");
 
-      const statusRes = await fetch(
-          `http://localhost:8080/orders/${orderId}/confirm`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-      );
+      const statusRes = await fetch(`${BASE_URL}orders/${orderId}/confirm`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!statusRes.ok) {
         const error = await statusRes.json().catch(() => ({}));
@@ -160,7 +163,7 @@ export default function Orders() {
 
       // ✅ Poll sau 3 giây để check status thật
       setTimeout(async () => {
-        const checkRes = await fetch(`http://localhost:8080/orders/${orderId}`, {
+        const checkRes = await fetch(`${BASE_URL}/orders/${orderId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const updated = await checkRes.json();
@@ -186,13 +189,11 @@ export default function Orders() {
         loadOrders();
         setShowDetailModal(false);
       }, 3000); // chờ 3 giây để consumer xử lý xong
-
     } catch (error) {
       console.error("Error confirming order:", error);
       alert("Error: " + (error.message || "Something went wrong"));
     }
   };
-
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -380,7 +381,7 @@ export default function Orders() {
                         <td className="px-6 py-5 text-base">
                           <span
                             className={`px-4 py-2 rounded-lg text-sm font-bold inline-block ${getStatusColor(
-                              order.statusOrder
+                              order.statusOrder,
                             )}`}
                           >
                             {order.statusOrder}
@@ -474,7 +475,7 @@ export default function Orders() {
                     </p>
                     <p className="text-lg font-bold text-gray-900">
                       {formatDate(
-                        selectedOrder.orderDate || selectedOrder.createdAt
+                        selectedOrder.orderDate || selectedOrder.createdAt,
                       )}
                     </p>
                   </div>
@@ -484,7 +485,7 @@ export default function Orders() {
                     </p>
                     <span
                       className={`text-sm font-bold px-4 py-2 rounded-lg inline-block ${getStatusColor(
-                        selectedOrder.statusOrder
+                        selectedOrder.statusOrder,
                       )}`}
                     >
                       {selectedOrder.statusOrder}
@@ -504,7 +505,7 @@ export default function Orders() {
                     </p>
                     <p className="text-2xl font-bold text-red-600">
                       {formatPrice(
-                        selectedOrder.customerTrading?.totalAmount || 0
+                        selectedOrder.customerTrading?.totalAmount || 0,
                       )}
                     </p>
                   </div>
@@ -670,7 +671,7 @@ export default function Orders() {
                             </td>
                             <td className="px-4 py-4 text-right text-xl font-bold text-red-600">
                               {formatPrice(
-                                selectedOrder.customerTrading?.totalAmount || 0
+                                selectedOrder.customerTrading?.totalAmount || 0,
                               )}
                             </td>
                           </tr>

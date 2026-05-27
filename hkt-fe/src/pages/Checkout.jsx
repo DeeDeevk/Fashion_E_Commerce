@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const formatVND = (amount) => {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -72,7 +74,7 @@ const Checkout = () => {
     const fetchAddresses = async () => {
       try {
         const token = localStorage.getItem("accessToken");
-        const res = await fetch(`http://localhost:8080/addresses/${userId}`, {
+        const res = await fetch(`${BASE_URL}/addresses/${userId}`, {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
@@ -91,7 +93,7 @@ const Checkout = () => {
   useEffect(() => {
     const handleFetchCustomer = async () => {
       const token = localStorage.getItem("accessToken");
-      const res = await fetch(`http://localhost:8080/customers/${userId}`, {
+      const res = await fetch(`${BASE_URL}/customers/${userId}`, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -179,17 +181,14 @@ const Checkout = () => {
           };
         }
 
-        const res = await fetch(
-          "http://localhost:8080/customer-trading/create",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(requestBody),
+        const res = await fetch(`${BASE_URL}/customer-trading/create`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-        );
+          body: JSON.stringify(requestBody),
+        });
 
         if (!res.ok) throw new Error("Failed to create order");
 
@@ -212,7 +211,7 @@ const Checkout = () => {
           };
         }
 
-        const orderRes = await fetch("http://localhost:8080/orders/create", {
+        const orderRes = await fetch(`${BASE_URL}/orders/create`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -229,7 +228,7 @@ const Checkout = () => {
           toast.success("Đặt hàng thành công!!");
         }
         if (product) {
-          await fetch(`http://localhost:8080/order-details/create`, {
+          await fetch(`${BASE_URL}/order-details/create`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -246,9 +245,8 @@ const Checkout = () => {
           });
         } else {
           for (const item of selectedCartItems) {
-
             // create order detail
-            await fetch(`http://localhost:8080/order-details/create`, {
+            await fetch(`${BASE_URL}/order-details/create`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -265,32 +263,26 @@ const Checkout = () => {
             });
 
             // delete cart detail
-            await fetch(
-                `http://localhost:8080/cart-details/delete/${item.id}`,
-                {
-                  method: "DELETE",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                }
-            );
+            await fetch(`${BASE_URL}/cart-details/delete/${item.id}`, {
+              method: "DELETE",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            });
 
             // update cart total + quantity
-            await fetch(
-                `http://localhost:8080/carts/update/${cartId}/delete`,
-                {
-                  method: "PUT",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({
-                    price: item.subtotal,
-                    quantity: item.quantity,
-                  }),
-                }
-            );
+            await fetch(`${BASE_URL}/carts/update/${cartId}/delete`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                price: item.subtotal,
+                quantity: item.quantity,
+              }),
+            });
           }
           localStorage.removeItem("cartItems");
         }
@@ -302,7 +294,7 @@ const Checkout = () => {
             paymentMethod: "BANK_TRANSFER",
             paymentStatus: "UNPAID",
           };
-          const res = await fetch("http://localhost:8080/invoices", {
+          const res = await fetch(`${BASE_URL}/invoices`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -347,7 +339,7 @@ const Checkout = () => {
         delivery_address: finalDeliveryAddress,
         delivery_note: formAddress.delivery_note,
       };
-      const res = await fetch(`http://localhost:8080/addresses/add`, {
+      const res = await fetch(`${BASE_URL}/addresses/add`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -366,15 +358,12 @@ const Checkout = () => {
         toast.success("Add address successfully!!");
         setIsAddAddress(false);
       }
-      const resAddress = await fetch(
-        `http://localhost:8080/addresses/${userId}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+      const resAddress = await fetch(`${BASE_URL}/addresses/${userId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
       const data = await resAddress.json();
       setAddresses(data);
     } catch (error) {

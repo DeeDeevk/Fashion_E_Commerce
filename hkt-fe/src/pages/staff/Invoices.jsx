@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { FaEye, FaSync, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +21,7 @@ export default function Invoices() {
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:8080/invoices");
+      const res = await fetch(`${BASE_URL}/invoices`);
       if (!res.ok) {
         alert("Cannot load invoices");
         return;
@@ -308,7 +310,7 @@ export default function Invoices() {
                         <td className="px-6 py-5 text-base">
                           <span
                             className={`px-4 py-2 rounded-lg text-sm font-bold inline-block ${getStatusColor(
-                              invoice.paymentStatus
+                              invoice.paymentStatus,
                             )}`}
                           >
                             {invoice.paymentStatus}
@@ -410,7 +412,7 @@ export default function Invoices() {
                     </p>
                     <p className="text-lg font-bold text-gray-900">
                       {formatDate(
-                        selectedInvoice.createdAt || selectedInvoice.createDate
+                        selectedInvoice.createdAt || selectedInvoice.createDate,
                       )}
                     </p>
                   </div>
@@ -428,7 +430,7 @@ export default function Invoices() {
                     </p>
                     <span
                       className={`text-sm font-bold px-4 py-2 rounded-lg inline-block ${getStatusColor(
-                        selectedInvoice.paymentStatus
+                        selectedInvoice.paymentStatus,
                       )}`}
                     >
                       {selectedInvoice.paymentStatus}

@@ -12,6 +12,9 @@ import {
   FaSortAmountDown,
 } from "react-icons/fa";
 import AdminChatBot from "../../components/AdminChatBot";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function Products({ initialFilter = "ALL" }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -64,7 +67,7 @@ export default function Products({ initialFilter = "ALL" }) {
   const loadProducts = async () => {
     try {
       const token = localStorage.getItem("accessToken");
-      const res = await fetch("http://localhost:8080/admin/products", {
+      const res = await fetch(`${BASE_URL}/admin/products`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -81,7 +84,7 @@ export default function Products({ initialFilter = "ALL" }) {
   const loadCategories = async () => {
     try {
       const token = localStorage.getItem("accessToken");
-      const res = await fetch("http://localhost:8080/admin/categories", {
+      const res = await fetch(`${BASE_URL}/admin/categories`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -195,8 +198,8 @@ export default function Products({ initialFilter = "ALL" }) {
     // 2. Chuẩn bị URL và Method
     const method = editingProduct ? "PUT" : "POST";
     const url = editingProduct
-      ? `http://localhost:8080/admin/products/${editingProduct.id}`
-      : "http://localhost:8080/admin/products";
+      ? `${BASE_URL}/admin/products/${editingProduct.id}`
+      : `${BASE_URL}/admin/products`;
 
     // 3. Xử lý Category Request
     // Tìm object category gốc từ list 'categories' dựa trên ID đang chọn trong form
@@ -276,7 +279,7 @@ export default function Products({ initialFilter = "ALL" }) {
   const deleteProduct = async (id) => {
     const token = localStorage.getItem("accessToken");
     if (!window.confirm("Bạn có chắc muốn xóa?")) return;
-    await fetch(`http://localhost:8080/admin/products/${id}`, {
+    await fetch(`${BASE_URL}/admin/products/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
