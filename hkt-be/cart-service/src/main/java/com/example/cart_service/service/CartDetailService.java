@@ -121,5 +121,46 @@ public class CartDetailService {
                 .map(cartDetailMapper::toCartDetailResponse)
                 .toList();
     }
+
+//    public CartDetailResponse updateCartDetailQuantity(int cartDetailId, int newQuantity) {
+//        CartDetail cartDetail = cartDetailRepository.findById(cartDetailId)
+//                .orElseThrow(() -> new RuntimeException("CartDetail not found"));
+//
+//        cartDetail.setQuantity(newQuantity);
+//        cartDetail.setSubtotal(cartDetail.getPrice_at_time() * newQuantity);
+//        cartDetail.setUpdateAt(new Date());
+//
+//        CartDetail updated = cartDetailRepository.save(cartDetail);
+//        return cartDetailMapper.toCartDetailResponse(updated);
+//    }
+public CartDetailResponse updateCartDetailQuantity(int cartDetailId, int newQuantity) {
+    CartDetail cartDetail = cartDetailRepository.findById(cartDetailId)
+            .orElseThrow(() -> new RuntimeException("CartDetail not found"));
+
+    // Lấy thông tin tồn kho từ SizeDetail liên kết với sản phẩm này
+    SizeDetail sizeDetail = cartDetail.getSizeDetail();
+    if (sizeDetail == null) {
+        throw new RuntimeException("Size detail info not found");
+    }
+
+    // Giả định SizeDetail của bạn có thuộc tính lấy số lượng kho là getQuantity() hoặc getStock()
+    // Thay đổi .getQuantity() bên dưới bằng tên hàm chính xác trong Entity SizeDetail của bạn
+    int stockAvailable = sizeDetail.getQuantity();
+
+    if (newQuantity > stockAvailable) {
+        throw new IllegalArgumentException("Số lượng vượt quá tồn kho còn lại (" + stockAvailable + ")");
+    }
+
+    if (newQuantity <= 0) {
+        throw new IllegalArgumentException("Số lượng phải lớn hơn 0");
+    }
+
+    cartDetail.setQuantity(newQuantity);
+    cartDetail.setSubtotal(cartDetail.getPrice_at_time() * newQuantity);
+    cartDetail.setUpdateAt(new Date());
+
+    CartDetail updated = cartDetailRepository.save(cartDetail);
+    return cartDetailMapper.toCartDetailResponse(updated);
+}
 }
 

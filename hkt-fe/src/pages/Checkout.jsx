@@ -39,6 +39,7 @@ const Checkout = () => {
   const [payment, setPayment] = useState("");
   const [provinces, setProvinces] = useState([]);
   const [wards, setWards] = useState([]);
+  const cartId = location.state?.cartId;
 
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedWard, setSelectedWard] = useState("");
@@ -245,6 +246,8 @@ const Checkout = () => {
           });
         } else {
           for (const item of selectedCartItems) {
+
+            // create order detail
             await fetch(`http://localhost:8080/order-details/create`, {
               method: "POST",
               headers: {
@@ -260,6 +263,34 @@ const Checkout = () => {
                 productId: item.productId,
               }),
             });
+
+            // delete cart detail
+            await fetch(
+                `http://localhost:8080/cart-details/delete/${item.id}`,
+                {
+                  method: "DELETE",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+            );
+
+            // update cart total + quantity
+            await fetch(
+                `http://localhost:8080/carts/update/${cartId}/delete`,
+                {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    price: item.subtotal,
+                    quantity: item.quantity,
+                  }),
+                }
+            );
           }
           localStorage.removeItem("cartItems");
         }

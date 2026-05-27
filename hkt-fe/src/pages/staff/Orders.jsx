@@ -132,86 +132,66 @@ export default function Orders() {
     return await res.json();
   };
 
- const handleConfirmOrder = async (orderId) => {
-  const order = orders.find((o) => o.id === orderId);
-  if (!order) {
-    alert("Order not found!");
-    return;
-  }
+  const handleConfirmOrder = async (orderId) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) { alert("Order not found!"); return; }
+    if (!window.confirm("Confirm this order?")) return;
 
-  const isCashPayment = order.paymentMethod === "CASH";
-
-  const confirmMessage = isCashPayment
-    ? "Confirm this order?"
-    : "Confirm this order?";
-
-  if (!window.confirm(confirmMessage)) {
-    return;
-  }
-
-  try {
-    const token = localStorage.getItem("accessToken");
-
-    // 1) Cập nhật trạng thái đơn hàng
-    const statusRes = await fetch(
-      `http://localhost:8080/orders/status/${orderId}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statusOrder: "CONFIRMED" }),
-      }
-    );
-
-    if (!statusRes.ok) {
-      const error = await statusRes.json().catch(() => ({}));
-      throw new Error(error.message || "Failed to confirm order");
-    }
-
-    // 2) 👉 Gửi email thông báo cho khách hàng
     try {
-      await fetch(
-        `http://localhost:8080/customers/email/notification/${order.account.id}/${orderId}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const token = localStorage.getItem("accessToken");
+
+      const statusRes = await fetch(
+          `http://localhost:8080/orders/${orderId}/confirm`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
       );
-      // toast.info("Notification email sent to the customer.");
-    } catch (emailErr) {
-      console.error("Email failed:", emailErr);
-      // toast.warning("Order confirmed, but failed to send email.");
-    }
 
-    // 3) Nếu thanh toán tiền mặt thì tạo hóa đơn
-    if (isCashPayment) {
-      try {
-        await handleCreateInvoice(orderId);
-        toast.success(
-          "Order confirmed successfully! Invoice has been created."
-        );
-      } catch (invoiceError) {
-        console.error("Invoice creation failed:", invoiceError);
-        toast.warning(
-          "Order confirmed successfully!\nInvoice could not be created. Please create it manually."
-        );
+      if (!statusRes.ok) {
+        const error = await statusRes.json().catch(() => ({}));
+        throw new Error(error.message || "Failed to confirm order");
       }
-    } else {
-      toast.success("Order confirmed successfully!");
-    }
 
-    loadOrders();
-    setShowDetailModal(false);
-  } catch (error) {
-    console.error("Error confirming order:", error);
-    alert("Error: " + (error.message || "Something went wrong"));
-  }
-};
+      toast.info("Processing order...");
+
+      // ✅ Poll sau 3 giây để check status thật
+      setTimeout(async () => {
+        const checkRes = await fetch(`http://localhost:8080/orders/${orderId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const updated = await checkRes.json();
+        const finalStatus = updated.statusOrder ?? updated?.result?.statusOrder;
+
+        if (finalStatus === "CONFIRMED") {
+          // CASH thì tạo invoice
+          if (order.paymentMethod === "CASH") {
+            try {
+              await handleCreateInvoice(orderId);
+              toast.success("Order confirmed! Invoice has been created.");
+            } catch {
+              toast.warning("Order confirmed! Invoice could not be created.");
+            }
+          } else {
+            toast.success("Order confirmed successfully!");
+          }
+        } else if (finalStatus === "PENDING") {
+          // bị rollback → báo lỗi
+          toast.error("Insufficient stock! Order has been reset to Pending.");
+        }
+
+        loadOrders();
+        setShowDetailModal(false);
+      }, 3000); // chờ 3 giây để consumer xử lý xong
+
+    } catch (error) {
+      console.error("Error confirming order:", error);
+      alert("Error: " + (error.message || "Something went wrong"));
+    }
+  };
 
 
   const getStatusColor = (status) => {
