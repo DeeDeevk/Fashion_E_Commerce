@@ -440,7 +440,7 @@ const Cart = () => {
     try {
       const token = localStorage.getItem("accessToken");
       const res = await fetch(
-        `${BASE_URL}cart-details/${cartDetailId}/decrease-quantity`,
+        `${BASE_URL}/cart-details/${cartDetailId}/decrease-quantity`,
         {
           method: "PUT",
           headers: {
