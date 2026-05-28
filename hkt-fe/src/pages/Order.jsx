@@ -12,6 +12,8 @@ import {
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const Order = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [orders, setOrders] = useState([]);
@@ -23,15 +25,12 @@ const Order = () => {
     try {
       const token = localStorage.getItem("accessToken");
 
-      const res = await fetch(
-        `http://localhost:8080/orders/account/${userId}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await fetch(`${BASE_URL}/orders/account/${userId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await res.json();
       setOrders(data);
@@ -146,7 +145,7 @@ const Order = () => {
                 try {
                   const token = localStorage.getItem("accessToken");
 
-                  await fetch(`http://localhost:8080/orders/status/${id}`, {
+                  await fetch(`${BASE_URL}/orders/status/${id}`, {
                     method: "PUT",
                     headers: {
                       "Content-Type": "application/json",
@@ -177,7 +176,7 @@ const Order = () => {
       {
         duration: Infinity,
         className: "shadow-lg rounded-xl border border-gray-200",
-      }
+      },
     );
   };
 
@@ -361,8 +360,8 @@ const Order = () => {
                           {formatPrice(
                             order.orderDetails.reduce(
                               (sum, detail) => sum + detail.totalPrice,
-                              0
-                            ) + 30000
+                              0,
+                            ) + 30000,
                           )}
                         </p>
                       </div>

@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 8081
 
 # Chạy lệnh dev trực tiếp
-CMD ["npm", "run", "dev"]
+CMD ["node", "src/server.js"]

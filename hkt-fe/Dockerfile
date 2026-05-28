@@ -1,8 +1,12 @@
-FROM node:22-alpine
+# Stage 1: Build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
-EXPOSE 5173
-# Vite cần flag --host để có thể truy cập được từ bên ngoài container
-CMD ["npm", "run", "dev", "--", "--host"]
+RUN npm run build
+
+# Stage 2: Serve với Nginx
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80

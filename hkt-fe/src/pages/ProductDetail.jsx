@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import ChatBot from "../components/ChatBot";
 import Contact from "../components/Contact";
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 // --- GLOBAL UTILS FOR COMPARE LIST ---
 const getCompareList = () => {
   const list = localStorage.getItem("compareList");
@@ -155,7 +157,7 @@ const ProductDetail = () => {
     try {
       const token = localStorage.getItem("accessToken");
 
-      const res = await fetch(`http://localhost:8080/accounts/myinfor`, {
+      const res = await fetch(`${BASE_URL}/accounts/myinfor`, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -179,15 +181,12 @@ const ProductDetail = () => {
   const fetchCart = async () => {
     try {
       const token = localStorage.getItem("accessToken");
-      const res = await fetch(
-        `http://localhost:8080/carts/account/${user.id}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await fetch(`${BASE_URL}/carts/account/${user.id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
       console.log("Cart của user: ", data.result);
       setCart(data.result);
@@ -206,7 +205,7 @@ const ProductDetail = () => {
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`http://localhost:8080/products/${id}`);
+        const response = await fetch(`${BASE_URL}/products/${id}`);
         if (response.ok) {
           const data = await response.json();
           // Dữ liệu SoldQuantity được lấy trực tiếp từ data.result (ProductResponse)
@@ -227,13 +226,13 @@ const ProductDetail = () => {
   useEffect(() => {
     const fetchOtherProducts = async () => {
       try {
-        const response = await fetch("http://localhost:8080/products");
+        const response = await fetch(`${BASE_URL}/products`);
         if (response.ok) {
           const data = await response.json();
           let products = data.result || [];
 
           products.sort(
-            (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+            (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
           );
           products = products.filter((p) => p.id !== parseInt(id)).slice(0, 4);
           setOtherProducts(products);
@@ -248,12 +247,17 @@ const ProductDetail = () => {
   useEffect(() => {
     if (!otherProducts.length || !localStorage.getItem("accessToken")) return;
     const ids = otherProducts.map((p) => p.id).join(",");
-    fetch(`http://localhost:8080/wishlists/products/in-wishlist-batch?productIds=${ids}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
-    })
-        .then((r) => r.json())
-        .then((data) => setRelatedWishlistMap(data.result || data))
-        .catch(() => {});
+    fetch(
+      `${BASE_URL}/wishlists/products/in-wishlist-batch?productIds=${ids}`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+      },
+    )
+      .then((r) => r.json())
+      .then((data) => setRelatedWishlistMap(data.result || data))
+      .catch(() => {});
   }, [otherProducts]);
 
   const formatPrice = (price) => {
@@ -280,10 +284,60 @@ const ProductDetail = () => {
       return toast.warning("Please select a size");
     }
 
-    if (!user?.id) {
-      toast.warning("Vui lòng đăng nhập trước khi thêm vào giỏ hàng");
-      return toast.warning("Please Log in before add to cart");
+    // if (!user?.id) {
+    //   toast.warning("Vui lòng đăng nhập trước khi thêm vào giỏ hàng");
+    //   return toast.warning("Please Log in before add to cart");
+    // }
+
+    // XỬ LÝ CHO KHÁCH VÃNG LAI (GUEST)
+    if (!user?.id || !localStorage.getItem("accessToken")) {
+      // Tìm sizeDetailId từ dữ liệu product đã load sẵn để lưu lại dùng cho lúc Merge
+      let sizeDetailIdForGuest = null;
+      if (hasSizes && selectedSize) {
+        const foundSize = product.sizeDetails.find(
+          (sd) =>
+            sd.sizeName === selectedSize || sd.size?.nameSize === selectedSize,
+        );
+        if (foundSize) sizeDetailIdForGuest = foundSize.id;
+      }
+      const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+      const newItem = {
+        id: `guest_${Date.now()}`, // Tạo ID tạm thời
+        productId: parseInt(id),
+        productName: product.name,
+        productImage: product.imageUrlFront,
+        sizeName: selectedSize,
+        sizeDetailId: sizeDetailIdForGuest,
+        quantity: quantity,
+        stock: currentStock, // THÊM DÒNG NÀY ĐỂ LƯU TỒN KHO THỰC TẾ
+        priceAtTime: product.costPrice,
+        subtotal: product.costPrice * quantity,
+        selected: true, // Khách thêm vào là mặc định tick chọn luôn
+      };
+      // Kiểm tra xem sản phẩm & size này đã có trong giỏ guest chưa
+      const existingIndex = guestCart.findIndex(
+        (item) =>
+          item.productId === newItem.productId &&
+          item.sizeName === newItem.sizeName,
+      );
+
+      if (existingIndex !== -1) {
+        guestCart[existingIndex].quantity += quantity;
+        guestCart[existingIndex].subtotal =
+          guestCart[existingIndex].quantity *
+          guestCart[existingIndex].priceAtTime;
+      } else {
+        guestCart.push(newItem);
+      }
+
+      localStorage.setItem("guestCart", JSON.stringify(guestCart));
+      setIsAddedToCart(true);
+      toast.success("Added items to Guest Cart!");
+      setTimeout(() => setIsAddedToCart(false), 2000);
+      window.dispatchEvent(new Event("cartUpdated"));
+      return; // Kết thúc sớm, không chạy xuống code gọi API bên dưới
     }
+
     if (quantity < 1) return toast.warning("Quantity must be at least 1");
 
     setIsAddedToCart(true);
@@ -298,7 +352,7 @@ const ProductDetail = () => {
       if (hasSizes && selectedSize) {
         // Tìm sizeDetail có sizeName trùng với selectedSize
         const sizeDetail = uniqueSizes.find(
-          (size) => size.sizeName === selectedSize
+          (size) => size.sizeName === selectedSize,
         );
         // Lưu ý: uniqueSizes đã được gộp quantity, sizeDetailId là id của 1 trong các sizeDetails
         // Giả định backend có thể xử lý việc này nếu chỉ gửi sizeName hoặc productId + sizeName
@@ -306,26 +360,26 @@ const ProductDetail = () => {
 
         // **GIẢI QUYẾT CONFLICT:** Giữ lại logic tìm sizeDetailId chi tiết từ nhánh khác
         const resSize = await fetch(
-          `http://localhost:8080/sizes/${selectedSize}`, // Giả định selectedSize là tên (S, M, L, XL)
+          `${BASE_URL}/sizes/${selectedSize}`, // Giả định selectedSize là tên (S, M, L, XL)
           {
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         const size = await resSize.json();
         const sizeIdToFind = size.id;
         const productIdToFind = parseInt(id);
         const resSizeDatail = await fetch(
-          `http://localhost:8080/size-details/find?productId=${productIdToFind}&sizeId=${sizeIdToFind}`,
+          `${BASE_URL}/size-details/find?productId=${productIdToFind}&sizeId=${sizeIdToFind}`,
           {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         const sizeDetailResponse = await resSizeDatail.json();
         sizeDetailId = sizeDetailResponse.id; // Lấy sizeDetailId
@@ -340,17 +394,14 @@ const ProductDetail = () => {
         ...(sizeDetailId && { sizeDetailId: sizeDetailId }),
       };
 
-      const res = await fetch(
-        `http://localhost:8080/cart-details/add-to-cart`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(dataSend),
-        }
-      );
+      const res = await fetch(`${BASE_URL}/cart-details/add-to-cart`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(dataSend),
+      });
 
       // **GIẢI QUYẾT CONFLICT:** Giữ lại logic cập nhật cart totalAmount
       const cartRequest = {
@@ -358,17 +409,14 @@ const ProductDetail = () => {
         totalAmount: product.costPrice, // Dùng costPrice (giá sale)
       };
 
-      const resCart = await fetch(
-        `http://localhost:8080/carts/update/${cart.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(cartRequest),
-        }
-      );
+      const resCart = await fetch(`${BASE_URL}/carts/update/${cart.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(cartRequest),
+      });
       if (resCart.ok) {
         // Kích hoạt sự kiện để thông báo cập nhật giỏ hàng (ví dụ cho header cart icon)
         window.dispatchEvent(new Event("cartUpdated"));
@@ -434,14 +482,81 @@ const ProductDetail = () => {
 
   const handleZoom = (imageType) => {
     setZoomImage(
-      imageType === "front" ? product.imageUrlFront : product.imageUrlBack
+      imageType === "front" ? product.imageUrlFront : product.imageUrlBack,
     );
     setZoomLevel(1);
     setPosition({ x: 0, y: 0 });
   };
 
+  // const changeQuantity = (delta) => {
+  //   setQuantity((prev) => Math.max(1, prev + delta));
+  // };
   const changeQuantity = (delta) => {
-    setQuantity((prev) => Math.max(1, prev + delta));
+    setQuantity((prev) => {
+      const newQuantity = prev + delta;
+      // Không cho giảm dưới 1 và không cho tăng quá currentStock
+      if (newQuantity < 1) return 1;
+      if (newQuantity > currentStock) {
+        toast.warning(`Only ${currentStock} items available in stock!`);
+        return prev; // Giữ nguyên số lượng cũ
+      }
+      return newQuantity;
+    });
+  };
+  // Hàm xử lý khi người dùng gõ vào input
+  const handleQuantityChange = (e) => {
+    const val = e.target.value;
+
+    // Cho phép input rỗng (khi user nhấn nút Backspace để xóa đi nhập lại)
+    if (val === "") {
+      setQuantity("");
+      return;
+    }
+
+    const num = parseInt(val, 10);
+
+    // Bỏ qua nếu nhập ký tự không phải là số
+    if (isNaN(num)) return;
+
+    // Tính toán tồn kho của size đang chọn (từ logic chúng ta đã bàn ở phần trước)
+    const currentStock = selectedSize
+      ? uniqueSizes.find((size) => size.sizeName === selectedSize)?.quantity ||
+        0
+      : totalStock;
+
+    // Kiểm tra giới hạn tồn kho
+    if (num > currentStock) {
+      toast.warning(`Only ${currentStock} items available in stock!`);
+      setQuantity(currentStock); // Ép về số lượng tối đa
+    } else {
+      setQuantity(num);
+    }
+  };
+
+  // Hàm xử lý khi người dùng click ra ngoài (onBlur)
+  const handleQuantityBlur = () => {
+    // Nếu user bỏ trống hoặc nhập số nhỏ hơn 1 thì reset về 1
+    if (quantity === "" || quantity < 1) {
+      setQuantity(1);
+    }
+  };
+  // Hàm xử lý khi người dùng đổi Size
+  const handleSizeSelect = (newSizeName) => {
+    setSelectedSize(newSizeName); // Cập nhật size mới
+
+    // Tìm số lượng tồn kho của size vừa chọn
+    const newSizeStock =
+      uniqueSizes.find((size) => size.sizeName === newSizeName)?.quantity || 0;
+
+    // Nếu số lượng user đang chọn lớn hơn tồn kho của size mới
+    if (quantity > newSizeStock && newSizeStock > 0) {
+      setQuantity(newSizeStock); // Tự động kéo tụt quantity xuống bằng max tồn kho của size mới
+      toast.info(
+        `Adjusted quantity to ${newSizeStock} due to stock limits of Size ${newSizeName}.`,
+      );
+    } else if (newSizeStock <= 0) {
+      setQuantity(1); // Reset an toàn nếu rủi ro chọn trúng size hết hàng
+    }
   };
 
   const handleWheel = (e) => {
@@ -497,7 +612,7 @@ const ProductDetail = () => {
         setCompareList(newList);
         setCompareListState(newList);
         toast.success(
-          `${product.name} added to Compare List (${newList.length}/4).`
+          `${product.name} added to Compare List (${newList.length}/4).`,
         );
       } else {
         toast.error("Maximum 4 products allowed for comparison.");
@@ -547,7 +662,10 @@ const ProductDetail = () => {
   // LOGIC SOLD OUT: Tính tổng tồn kho và xác định Sold Out
   const totalStock = uniqueSizes.reduce((sum, size) => sum + size.quantity, 0);
   const isSoldOut = totalStock === 0;
-
+  // THÊM ĐOẠN NÀY: Lấy tồn kho của size đang chọn, nếu chưa chọn size thì hiện tổng tồn kho
+  const currentStock = selectedSize
+    ? uniqueSizes.find((size) => size.sizeName === selectedSize)?.quantity || 0
+    : totalStock;
   const isComparing = compareList.some((p) => p.id === product.id);
 
   return (
@@ -654,8 +772,19 @@ const ProductDetail = () => {
               <div className="flex gap-2 flex-wrap">
                 {uniqueSizes.map((size) => (
                   <button
+                    // key={size.sizeName}
+                    // onClick={() => setSelectedSize(size.sizeName)}
+                    // disabled={size.quantity <= 0}
+                    // className={`px-4 py-2 rounded-lg border ${
+                    //   selectedSize === size.sizeName
+                    //     ? "bg-red-500 text-white border-red-500"
+                    //     : "border-gray-300 hover:bg-gray-100"
+                    // } ${
+                    //   size.quantity <= 0 ? "opacity-50 cursor-not-allowed" : ""
+                    // }`}
+
                     key={size.sizeName}
-                    onClick={() => setSelectedSize(size.sizeName)}
+                    onClick={() => handleSizeSelect(size.sizeName)}
                     disabled={size.quantity <= 0}
                     className={`px-4 py-2 rounded-lg border ${
                       selectedSize === size.sizeName
@@ -684,9 +813,32 @@ const ProductDetail = () => {
                 >
                   <Minus size={16} />
                 </button>
-                <span className="px-4 py-2 border border-gray-300 rounded-lg">
-                  {quantity}
-                </span>
+                {/*<span className="px-4 py-2 border border-gray-300 rounded-lg">*/}
+                {/*  {quantity}*/}
+                {/*</span>*/}
+                {/*  <input*/}
+                {/*      type="number"*/}
+                {/*      value={quantity}*/}
+                {/*      onChange={handleQuantityChange}*/}
+                {/*      onBlur={handleQuantityBlur}*/}
+                {/*      disabled={isSoldOut}*/}
+                {/*      className={`w-16 text-center px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500 transition-colors ${*/}
+                {/*          isSoldOut ? "bg-gray-100 opacity-50 cursor-not-allowed" : ""*/}
+                {/*      }`}*/}
+                {/*      // Ẩn hai mũi tên tăng/giảm mặc định của trình duyệt (vì đã có nút + và - custom)*/}
+                {/*      style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}*/}
+                {/*  />*/}
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={handleQuantityChange}
+                  onBlur={handleQuantityBlur}
+                  disabled={isSoldOut}
+                  className={`w-16 text-center px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                    isSoldOut ? "bg-gray-100 opacity-50 cursor-not-allowed" : ""
+                  }`}
+                />
+
                 <button
                   onClick={() => changeQuantity(1)}
                   disabled={isSoldOut} // Disable quantity change if sold out
@@ -696,6 +848,18 @@ const ProductDetail = () => {
                 >
                   <Plus size={16} />
                 </button>
+              </div>
+              {/* THÊM ĐOẠN NÀY: Dòng hiển thị tồn kho */}
+              <div className="mt-2 text-sm">
+                <span className="text-gray-600">Available Stock: </span>
+                <span className="font-bold text-red-600">
+                  {currentStock} items
+                </span>
+                {selectedSize && (
+                  <span className="text-gray-500 italic ml-1">
+                    (Size {selectedSize})
+                  </span>
+                )}
               </div>
             </div>
             {/* ACTION BUTTONS */}
@@ -713,8 +877,8 @@ const ProductDetail = () => {
                 {isSoldOut
                   ? "Sold Out"
                   : isAddedToCart
-                  ? "Added"
-                  : "Add to Cart"}
+                    ? "Added"
+                    : "Add to Cart"}
               </button>
 
               <button
@@ -759,14 +923,17 @@ const ProductDetail = () => {
             <h2 className="text-3xl font-bold mb-6">You May Also Like</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {otherProducts.map((prod) => (
-                  <ProductCard
-                      key={prod.id}
-                      product={prod}
-                      isInWishlist={relatedWishlistMap[prod.id] ?? false}   // ← thêm
-                      onWishlistChange={(id, status) =>                      // ← thêm
-                          setRelatedWishlistMap((prev) => ({ ...prev, [id]: status }))
-                      }
-                  />
+                <ProductCard
+                  key={prod.id}
+                  product={prod}
+                  isInWishlist={relatedWishlistMap[prod.id] ?? false} // ← thêm
+                  onWishlistChange={(
+                    id,
+                    status, // ← thêm
+                  ) =>
+                    setRelatedWishlistMap((prev) => ({ ...prev, [id]: status }))
+                  }
+                />
               ))}
             </div>
           </div>

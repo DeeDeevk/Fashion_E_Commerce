@@ -14,6 +14,8 @@ import ProductCard from "../components/ProductCard";
 import ChatBot from "../components/ChatBot";
 import Contact from "../components/Contact";
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const Product = () => {
   const location = useLocation();
   const [products, setProducts] = useState([]);
@@ -35,13 +37,13 @@ const Product = () => {
 
     // Top 5 sản phẩm có soldQuantity cao nhất
     const sortedBySold = [...products].sort(
-      (a, b) => (b.soldQuantity || 0) - (a.soldQuantity || 0)
+      (a, b) => (b.soldQuantity || 0) - (a.soldQuantity || 0),
     );
     const top5Hot = sortedBySold.slice(0, 5).map((p) => p.id);
 
     // Top 5 sản phẩm có updatedAt gần nhất
     const sortedByDate = [...products].sort(
-      (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+      (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
     );
     const top5New = sortedByDate.slice(0, 5).map((p) => p.id);
 
@@ -65,7 +67,7 @@ const Product = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:8080/products");
+        const response = await fetch(`${BASE_URL}/products`);
         if (response.ok) {
           const data = await response.json();
           setProducts(data.result || []);
@@ -82,19 +84,24 @@ const Product = () => {
   useEffect(() => {
     if (!products.length || !localStorage.getItem("accessToken")) return;
     const ids = products.map((p) => p.id).join(",");
-    fetch(`http://localhost:8080/wishlists/products/in-wishlist-batch?productIds=${ids}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
-    })
-        .then((r) => r.json())
-        .then((data) => setWishlistMap(data.result || data))
-        .catch(() => {});
+    fetch(
+      `${BASE_URL}/wishlists/products/in-wishlist-batch?productIds=${ids}`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+      },
+    )
+      .then((r) => r.json())
+      .then((data) => setWishlistMap(data.result || data))
+      .catch(() => {});
   }, [products]);
 
   // Fetch categories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch("http://localhost:8080/categories");
+        const response = await fetch(`${BASE_URL}/categories`);
         if (response.ok) {
           const data = await response.json();
           setCategories(data.result || []);
@@ -120,7 +127,7 @@ const Product = () => {
 
     if (searchTerm) {
       filtered = filtered.filter((p) =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
 
@@ -130,7 +137,7 @@ const Product = () => {
     }
 
     filtered = filtered.filter(
-      (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
+      (p) => p.price >= priceRange[0] && p.price <= priceRange[1],
     );
 
     switch (sortBy) {
@@ -157,7 +164,7 @@ const Product = () => {
   const totalPages = Math.ceil(processedProducts.length / itemsPerPage);
   const paginatedProducts = processedProducts.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   const formatPrice = (price) => {
@@ -419,17 +426,17 @@ const Product = () => {
                     const isNew = newProductIds.includes(product.id);
 
                     return (
-                        <ProductCard
-                            key={product.id}
-                            product={product}
-                            isHot={isHot}
-                            isNew={isNew && !isHot}
-                            viewMode={viewMode}
-                            isInWishlist={wishlistMap[product.id] ?? false}
-                            onWishlistChange={(id, status) =>                  
-                                setWishlistMap((prev) => ({ ...prev, [id]: status }))
-                            }
-                        />
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        isHot={isHot}
+                        isNew={isNew && !isHot}
+                        viewMode={viewMode}
+                        isInWishlist={wishlistMap[product.id] ?? false}
+                        onWishlistChange={(id, status) =>
+                          setWishlistMap((prev) => ({ ...prev, [id]: status }))
+                        }
+                      />
                     );
                   })}
                 </div>

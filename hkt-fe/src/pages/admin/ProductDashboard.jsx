@@ -38,6 +38,8 @@ const satisfactionData = [
 
 const COLORS = ["#4f46e5", "#06b6d4", "#f59e0b", "#ec4899", "#8b5cf6"];
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const ProductDashboard = ({ onNavigate }) => {
   const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
@@ -89,7 +91,7 @@ const ProductDashboard = ({ onNavigate }) => {
   const getCategoryRevenue = async () => {
     try {
       const response = await fetch(
-        "http://localhost:8080/admin/categories/category-revenue",
+        `${BASE_URL}/admin/categories/category-revenue`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -120,7 +122,7 @@ const ProductDashboard = ({ onNavigate }) => {
   const fetchTopProducts = async () => {
     try {
       const res = await fetch(
-        `http://localhost:8080/admin/products/top-trending?type=${type}`,
+        `${BASE_URL}/admin/products/top-trending?type=${type}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -134,7 +136,7 @@ const ProductDashboard = ({ onNavigate }) => {
 
   const fetchSetData = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/admin/products/stats`, {
+      const res = await fetch(`${BASE_URL}/admin/products/stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -154,12 +156,9 @@ const ProductDashboard = ({ onNavigate }) => {
 
   const fetchProfit = async (filter) => {
     try {
-      const res = await fetch(
-        `http://localhost:8080/admin/invoices/${filter}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await fetch(`${BASE_URL}/admin/invoices/${filter}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
 
       const mapDayToEN = (dayEn) => {

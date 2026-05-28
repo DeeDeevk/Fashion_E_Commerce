@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const Register = () => {
   const navigate = useNavigate();
 
@@ -137,7 +139,7 @@ const Register = () => {
     };
 
     try {
-      const response = await fetch("http://localhost:8080/accounts", {
+      const response = await fetch(`${BASE_URL}/accounts`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -153,13 +155,13 @@ const Register = () => {
         const errorData = await response.json();
         console.error("Error creating account:", errorData);
         toast.error(
-          `Registration failed: ${errorData.message || "Please try again."}`
+          `Registration failed: ${errorData.message || "Please try again."}`,
         );
       }
     } catch (error) {
       console.error("Network or unknown error:", error);
       toast.error(
-        "An error occurred. Please check your network connection and try again."
+        "An error occurred. Please check your network connection and try again.",
       );
     }
   };
@@ -181,7 +183,7 @@ const Register = () => {
                 onChange={handleChange}
                 onBlur={handleValidation}
                 className={`w-full border-2 rounded-lg px-4 py-3 focus:outline-none transition ${getBorderClass(
-                  "fullName"
+                  "fullName",
                 )}`}
                 placeholder="Họ và tên..."
                 required
@@ -197,7 +199,7 @@ const Register = () => {
                 onChange={handleChange}
                 onBlur={handleValidation}
                 className={`w-full border-2 rounded-lg px-4 py-3 focus:outline-none transition ${getBorderClass(
-                  "phoneNumber"
+                  "phoneNumber",
                 )}`}
                 placeholder="Số điện thoại..."
                 required
@@ -213,7 +215,7 @@ const Register = () => {
                 onChange={handleChange}
                 onBlur={handleValidation}
                 className={`w-full border-2 rounded-lg px-4 py-3 focus:outline-none transition ${getBorderClass(
-                  "email"
+                  "email",
                 )}`}
                 placeholder="Email..."
                 required
@@ -273,7 +275,7 @@ const Register = () => {
                 onChange={handleChange}
                 onBlur={handleValidation}
                 className={`w-full border-2 rounded-lg px-4 py-3 focus:outline-none transition ${getBorderClass(
-                  "username"
+                  "username",
                 )}`}
                 placeholder="Username..."
                 required
@@ -289,7 +291,7 @@ const Register = () => {
                 onChange={handleChange}
                 onBlur={handleValidation}
                 className={`w-full border-2 rounded-lg px-4 py-3 focus:outline-none transition ${getBorderClass(
-                  "password"
+                  "password",
                 )}`}
                 placeholder="Mật khẩu..."
                 required
@@ -305,7 +307,7 @@ const Register = () => {
                 onChange={handleChange}
                 onBlur={handleValidation}
                 className={`w-full border-2 rounded-lg px-4 py-3 focus:outline-none transition ${getBorderClass(
-                  "password_confirmed"
+                  "password_confirmed",
                 )}`}
                 placeholder="Nhập lại mật khẩu..."
                 required

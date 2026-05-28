@@ -1,6 +1,9 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const ResetPassword = () => {
   const navigate = useNavigate();
   const [otp, setOtp] = useState("");
@@ -27,18 +30,15 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(
-        "http://localhost:8080/auth/reset-password",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token: token, // Token retrieved from Session
-            otp: otp, // OTP entered by user
-            newPassword: newPassword, // New password entered by user
-          }),
-        },
-      );
+      const response = await fetch(`${BASE_URL}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: token, // Token retrieved from Session
+          otp: otp, // OTP entered by user
+          newPassword: newPassword, // New password entered by user
+        }),
+      });
 
       const data = await response.json();
 

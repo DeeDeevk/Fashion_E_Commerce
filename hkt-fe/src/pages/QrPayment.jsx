@@ -3,6 +3,9 @@ import { useLocation, useNavigate } from "react-router";
 import dauTick from "../assets/dauTick.png";
 import ChatBot from "../components/ChatBot";
 import Contact from "../components/Contact";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const QrPayment = () => {
   const { search } = useLocation();
   const params = new URLSearchParams(search);
@@ -18,7 +21,7 @@ const QrPayment = () => {
   const handleFetchInvoiceById = async () => {
     try {
       const token = localStorage.getItem("accessToken");
-      const res = await fetch(`http://localhost:8080/invoices/${invoiceId}`, {
+      const res = await fetch(`${BASE_URL}/invoices/${invoiceId}`, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -29,7 +32,7 @@ const QrPayment = () => {
       if (invoice.paymentStatus === "PAID") {
         clearInterval(interval.current);
         sessionStorage.removeItem("paymentInfo");
-        await fetch(`http://localhost:8080/orders/status/${orderId}`, {
+        await fetch(`${BASE_URL}/orders/status/${orderId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -133,7 +136,9 @@ const QrPayment = () => {
           </div>
           <div className="flex justify-between border-b pb-2 border-gray-200">
             <span>Amount:</span>
-            <span className="font-semibold text-blue-600">{amount} VNĐ</span>
+            <span className="font-semibold text-blue-600">
+              {Number(amount).toLocaleString("vi-VN")} VNĐ
+            </span>
           </div>
           <div className="flex justify-between border-b pb-2 border-gray-200">
             <span>Transfer Content:</span>

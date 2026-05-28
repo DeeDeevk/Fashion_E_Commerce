@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-  
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const ChatBot = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const navigate = useNavigate();
@@ -79,7 +80,7 @@ const ChatBot = () => {
     try {
       const token = localStorage.getItem("accessToken");
 
-      const res = await fetch("http://localhost:8080/chat/ask", {
+      const res = await fetch(`${BASE_URL}/chat/ask`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -146,7 +147,7 @@ const ChatBot = () => {
 
       // ================= ADD =================
       if (cartAction.type === "ADD_TO_CART") {
-        endpoint = "http://localhost:8080/chat/cart/confirm-add";
+        endpoint = `${BASE_URL}/chat/cart/confirm-add`;
 
         body = {
           productId: cartAction.productId,
@@ -157,7 +158,7 @@ const ChatBot = () => {
 
       // ================= REMOVE =================
       if (cartAction.type === "REMOVE_FROM_CART") {
-        endpoint = "http://localhost:8080/chat/cart/confirm-remove";
+        endpoint = `${BASE_URL}/chat/cart/confirm-remove`;
 
         body = {
           cartDetailId: cartAction.cartDetailId,
@@ -194,19 +195,19 @@ const ChatBot = () => {
             : m,
         ),
       );
-setMessages((prev) => [
-  ...prev,
-  {
-    sender: "bot",
-    text: data.message || "Thao tác thành công 🎉",
-  },
-]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: data.message || "Thao tác thành công 🎉",
+        },
+      ]);
       // thêm tin nhắn bot
-     const toastMsg =
-  cartAction.type === "ADD_TO_CART"
-    ? `Đã thêm ${cartAction.productName} vào giỏ hàng! 🛒`
-    : `Đã xóa sản phẩm khỏi giỏ hàng! 🗑️`;
-toast.success(toastMsg);
+      const toastMsg =
+        cartAction.type === "ADD_TO_CART"
+          ? `Đã thêm ${cartAction.productName} vào giỏ hàng! 🛒`
+          : `Đã xóa sản phẩm khỏi giỏ hàng! 🗑️`;
+      toast.success(toastMsg);
     } catch (err) {
       console.error(err);
 
@@ -347,22 +348,23 @@ toast.success(toastMsg);
                           ))}
                         </div>
                       )}
-                   {msg.cartAction && !msg.cartAction.confirmed && !msg.cartAction.loading && (
-                      
-                      <div className="mt-3">
-                        <button
-                          onClick={() => handleCartAction(msg.cartAction)}
-                          disabled={msg.cartAction.loading}
-                          className="w-full p-4 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-all"
-                        >
-                          {msg.cartAction.loading
-                            ? "Đang xử lý..."
-                            : msg.cartAction.type === "ADD_TO_CART"
-                              ? "🛒 Xác nhận thêm vào giỏ"
-                              : "🗑️ Xác nhận xóa khỏi giỏ"}
-                        </button>
-                      </div>
-                    )}
+                    {msg.cartAction &&
+                      !msg.cartAction.confirmed &&
+                      !msg.cartAction.loading && (
+                        <div className="mt-3">
+                          <button
+                            onClick={() => handleCartAction(msg.cartAction)}
+                            disabled={msg.cartAction.loading}
+                            className="w-full p-4 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-all"
+                          >
+                            {msg.cartAction.loading
+                              ? "Đang xử lý..."
+                              : msg.cartAction.type === "ADD_TO_CART"
+                                ? "🛒 Xác nhận thêm vào giỏ"
+                                : "🗑️ Xác nhận xóa khỏi giỏ"}
+                          </button>
+                        </div>
+                      )}
                     {msg.compareIds && msg.compareIds.length >= 2 && (
                       <div className="mt-3 space-y-2">
                         <button
