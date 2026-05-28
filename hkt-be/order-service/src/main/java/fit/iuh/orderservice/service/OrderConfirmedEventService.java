@@ -23,5 +23,6 @@ public class OrderConfirmedEventService {  // đổi tên từ OrderCreatedEvent
         private String productName;
         private int quantity;
         private double unitPrice;
+        private Integer sizeDetailId;
     }
 }

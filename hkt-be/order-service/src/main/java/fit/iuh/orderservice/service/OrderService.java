@@ -231,7 +231,8 @@ public class OrderService {
                         d.getProduct().getId(),
                         d.getProductName(),
                         d.getQuantity(),
-                        d.getUnitPrice()
+                        d.getUnitPrice(),
+                        d.getSizeDetailId()
                 ))
                 .toList();
 
