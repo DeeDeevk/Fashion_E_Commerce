@@ -2,7 +2,9 @@ package fit.iuh.product_service.consumer;
 
 import fit.iuh.product_service.config.RabbitMQConfig;
 import fit.iuh.product_service.entities.Product;
+import fit.iuh.product_service.entities.SizeDetail;
 import fit.iuh.product_service.repository.ProductRepository;
+import fit.iuh.product_service.repository.SizeDetailRepository;
 import fit.iuh.product_service.service.OrderConfirmedEvent;
 import fit.iuh.product_service.service.ProductCacheService;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ public class OrderEventConsumer {
 
     private final ProductCacheService productCacheService;
     private final ProductRepository productRepository;
+    private final SizeDetailRepository sizeDetailRepository;
     private final RabbitTemplate rabbitTemplate;
 
     @Transactional
@@ -30,37 +33,62 @@ public class OrderEventConsumer {
         log.info("Received order.confirmed: orderCode={}, {} items",
                 event.getOrderCode(), event.getItems().size());
 
-        // validate trước — nếu bất kỳ sản phẩm nào thiếu hàng thì rollback toàn bộ
         for (OrderConfirmedEvent.OrderItemEvent item : event.getItems()) {
-            Product product = productRepository.findById(item.getProductId())
-                    .orElse(null);
+            Product product = productRepository.findById(item.getProductId()).orElse(null);
             if (product == null) {
-                log.warn("Product not found: {}", item.getProductId());
                 publishInsufficient(event.getOrderId(), event.getOrderCode(),
                         "Product not found: " + item.getProductId());
                 return;
             }
             if (product.getQuantity() < item.getQuantity()) {
-                log.warn("Insufficient stock for product {}: need {}, have {}",
-                        product.getName(), item.getQuantity(), product.getQuantity());
                 publishInsufficient(event.getOrderId(), event.getOrderCode(),
                         "Insufficient stock: " + product.getName()
                                 + " (need " + item.getQuantity() + ", have " + product.getQuantity() + ")");
                 return;
             }
+
+            if (item.getSizeDetailId() != null) {
+                SizeDetail sizeDetail = sizeDetailRepository.findById(item.getSizeDetailId()).orElse(null);
+                if (sizeDetail == null) {
+                    publishInsufficient(event.getOrderId(), event.getOrderCode(),
+                            "Size not found: sizeDetailId=" + item.getSizeDetailId());
+                    return;
+                }
+                if (sizeDetail.getQuantity() < item.getQuantity()) {
+                    publishInsufficient(event.getOrderId(), event.getOrderCode(),
+                            "Insufficient size stock: " + product.getName()
+                                    + " size " + sizeDetail.getSize().getNameSize()
+                                    + " (need " + item.getQuantity() + ", have " + sizeDetail.getQuantity() + ")");
+                    return;
+                }
+            }
         }
 
-        // tất cả đủ hàng → trừ stock
         for (OrderConfirmedEvent.OrderItemEvent item : event.getItems()) {
             Product product = productRepository.findById(item.getProductId()).orElseThrow();
             product.setQuantity(product.getQuantity() - item.getQuantity());
             productRepository.save(product);
+
+            if (item.getSizeDetailId() != null) {
+                SizeDetail sizeDetail = sizeDetailRepository.findById(item.getSizeDetailId()).orElseThrow();
+                sizeDetail.setQuantity(sizeDetail.getQuantity() - item.getQuantity());
+                sizeDetailRepository.save(sizeDetail);
+                log.info("SizeDetail deducted: sizeDetailId={}, remaining={}",
+                        sizeDetail.getId(), sizeDetail.getQuantity());
+            }
+
             log.info("Stock deducted: productId={}, remaining={}",
                     product.getId(), product.getQuantity());
         }
 
         productCacheService.refreshCache();
-        log.info("Stock deducted and cache refreshed for order {}", event.getOrderCode());
+
+        // publish thành công về order-service
+        Map<String, Object> confirmedPayload = new HashMap<>();
+        confirmedPayload.put("orderId", event.getOrderId());
+        confirmedPayload.put("orderCode", event.getOrderCode());
+        rabbitTemplate.convertAndSend("order.exchange", "order.stock.confirmed", confirmedPayload);
+        log.info("Published order.stock.confirmed for orderId={}", event.getOrderId());
     }
 
     private void publishInsufficient(int orderId, String orderCode, String reason) {
@@ -68,11 +96,7 @@ public class OrderEventConsumer {
         payload.put("orderId", orderId);
         payload.put("orderCode", orderCode);
         payload.put("reason", reason);
-        rabbitTemplate.convertAndSend(
-                RabbitMQConfig.STOCK_EXCHANGE,
-                RabbitMQConfig.STOCK_ROUTING_KEY,
-                payload
-        );
-        log.info("Published stock.insufficient for orderId={}", orderId);
+        rabbitTemplate.convertAndSend(RabbitMQConfig.STOCK_EXCHANGE, RabbitMQConfig.STOCK_ROUTING_KEY, payload);
+        log.info("Published stock.insufficient for orderId={}, reason={}", orderId, reason);
     }
 }

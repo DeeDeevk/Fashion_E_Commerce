@@ -42,6 +42,7 @@ const Checkout = () => {
   const [provinces, setProvinces] = useState([]);
   const [wards, setWards] = useState([]);
   const cartId = location.state?.cartId;
+  const sizeDetailId = location.state?.sizeDetailId;
 
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedWard, setSelectedWard] = useState("");
@@ -241,6 +242,7 @@ const Checkout = () => {
               totalPrice: product.costPrice * quantity,
               orderId: orderData.id,
               productId: product.id,
+              sizeDetailId: sizeDetailId,
             }),
           });
         } else {
@@ -259,6 +261,7 @@ const Checkout = () => {
                 totalPrice: item.subtotal,
                 orderId: orderData.id,
                 productId: item.productId,
+                sizeDetailId: item.sizeDetailId,
               }),
             });
 

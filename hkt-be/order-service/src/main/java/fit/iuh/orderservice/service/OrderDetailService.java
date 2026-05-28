@@ -40,6 +40,7 @@ public class OrderDetailService {
         orderDetail.setOrder(order);
         orderDetail.setProductName(orderDetailRequest.getProductName());
         orderDetail.setQuantity(orderDetailRequest.getQuantity());
+        orderDetail.setSizeDetailId(orderDetailRequest.getSizeDetailId());
         orderDetail.setCreated_at(new Date());
         orderDetail.setUpdated_at(new Date());
         orderDetail.setTotalPrice(orderDetailRequest.getTotalPrice());
