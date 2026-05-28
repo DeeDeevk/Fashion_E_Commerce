@@ -136,7 +136,9 @@ const QrPayment = () => {
           </div>
           <div className="flex justify-between border-b pb-2 border-gray-200">
             <span>Amount:</span>
-            <span className="font-semibold text-blue-600">{amount} VNĐ</span>
+            <span className="font-semibold text-blue-600">
+              {Number(amount).toLocaleString("vi-VN")} VNĐ
+            </span>
           </div>
           <div className="flex justify-between border-b pb-2 border-gray-200">
             <span>Transfer Content:</span>
