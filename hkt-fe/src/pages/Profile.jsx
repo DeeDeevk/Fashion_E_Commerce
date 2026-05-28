@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import ChatBot from "../components/ChatBot";
 import Contact from "../components/Contact";
 
-const API_BASE = import.meta.env.VISE_API_BASE_URL;
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 // --- API CLIENT ---
 const api = {
