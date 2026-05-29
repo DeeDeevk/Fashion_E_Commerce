@@ -444,23 +444,26 @@ const ProductDetail = () => {
       const token = localStorage.getItem("accessToken");
 
       if (hasSizes && selectedSize) {
-        const resSize = await fetch(`http://localhost:8080/sizes/${selectedSize}`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+        const resSize = await fetch(
+          `http://${BASE_URL}/sizes/${selectedSize}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
         const size = await resSize.json();
 
         const resSizeDetail = await fetch(
-            `http://localhost:8080/size-details/find?productId=${id}&sizeId=${size.id}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            }
+          `http://${BASE_URL}/size-details/find?productId=${id}&sizeId=${size.id}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          },
         );
         const sizeDetail = await resSizeDetail.json();
         sizeDetailId = sizeDetail.id;
