@@ -445,7 +445,7 @@ const ProductDetail = () => {
 
       if (hasSizes && selectedSize) {
         const resSize = await fetch(
-          `http://${BASE_URL}/sizes/${selectedSize}`,
+          `${BASE_URL}/sizes/${selectedSize}`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -456,7 +456,7 @@ const ProductDetail = () => {
         const size = await resSize.json();
 
         const resSizeDetail = await fetch(
-          `http://${BASE_URL}/size-details/find?productId=${id}&sizeId=${size.id}`,
+          `${BASE_URL}/size-details/find?productId=${id}&sizeId=${size.id}`,
           {
             method: "GET",
             headers: {
