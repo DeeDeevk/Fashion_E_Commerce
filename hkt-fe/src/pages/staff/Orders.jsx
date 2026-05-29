@@ -146,7 +146,7 @@ export default function Orders() {
     try {
       const token = localStorage.getItem("accessToken");
 
-      const statusRes = await fetch(`${BASE_URL}orders/${orderId}/confirm`, {
+      const statusRes = await fetch(`${BASE_URL}/orders/${orderId}/confirm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
