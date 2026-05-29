@@ -314,7 +314,9 @@ const Checkout = () => {
               "paymentInfo",
               JSON.stringify({
                 orderId: orderData.id,
-                amount: summary.total,
+                amount: product
+                  ? product.costPrice * quantity + 30000
+                  : summary.total,
                 invoiceId: newInvoice.id,
                 invoiceCode: newInvoice.invoiceCode,
               }),
