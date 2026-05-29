@@ -40,6 +40,9 @@ public class OrderDetail {
     @Temporal(TemporalType.TIMESTAMP)
     private Date updated_at;
 
+    @Column(name = "size_detail_id")
+    private Integer sizeDetailId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
     private Order order;

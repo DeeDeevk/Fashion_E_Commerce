@@ -22,5 +22,6 @@ public class OrderConfirmedEvent {
         private String productName;
         private int quantity;
         private double unitPrice;
+        private Integer sizeDetailId;
     }
 }

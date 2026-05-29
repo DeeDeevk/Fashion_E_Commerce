@@ -16,4 +16,5 @@ public class OrderDetailRequest {
     private double totalPrice;
     private int orderId;
     private int productId;
+    private Integer sizeDetailId;
 }

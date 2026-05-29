@@ -427,8 +427,7 @@ const ProductDetail = () => {
     }
   };
 
-  const handleBuyNow = () => {
-    // BỔ SUNG: Kiểm tra Sold Out
+  const handleBuyNow = async () => {
     if (isSoldOut) {
       return toast.error("This product is currently sold out.");
     }
@@ -438,9 +437,47 @@ const ProductDetail = () => {
       return toast.warning("Please select a size");
     }
     if (quantity < 1) return toast.warning("Quantity must be at least 1");
-    navigate("/checkout", {
-      state: { userId: user.id, product: product, quantity: quantity },
-    });
+
+    let sizeDetailId = null;
+
+    try {
+      const token = localStorage.getItem("accessToken");
+
+      if (hasSizes && selectedSize) {
+        const resSize = await fetch(`http://localhost:8080/sizes/${selectedSize}`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const size = await resSize.json();
+
+        const resSizeDetail = await fetch(
+            `http://localhost:8080/size-details/find?productId=${id}&sizeId=${size.id}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+        );
+        const sizeDetail = await resSizeDetail.json();
+        sizeDetailId = sizeDetail.id;
+      }
+
+      navigate("/checkout", {
+        state: {
+          userId: user.id,
+          product: product,
+          quantity: quantity,
+          sizeDetailId: sizeDetailId,
+        },
+      });
+    } catch (error) {
+      console.error("Lỗi khi lấy size detail: ", error);
+      toast.error("Failed to process. Please try again.");
+    }
   };
 
   const handleZoom = (imageType) => {
