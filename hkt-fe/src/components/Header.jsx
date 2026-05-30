@@ -1,14 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import {
-  Search,
-  User,
-  ShoppingCart,
-  Menu,
-  X,
-  LogOut,
-  CardSim,
-} from "lucide-react";
+import { Search, User, ShoppingCart, Menu, X, LogOut } from "lucide-react";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -24,87 +16,22 @@ export default function Header() {
   const location = useLocation();
   const searchRef = useRef(null);
   const dropdownRef = useRef(null);
-  // --- CHÈN THÊM ĐOẠN NÀY ĐỂ QUẢN LÝ SỐ LƯỢNG GIỎ HÀNG ---
   const [cartCount, setCartCount] = useState(0);
 
-  // const fetchCartCount = async () => {
-  //     try {
-  //         const cartId = localStorage.getItem("cartId") || 3; // Lấy cartId từ localStorage hoặc mặc định là 3 như API của bạn
-  //         const token = localStorage.getItem("accessToken");
-  //
-  //         const res = await fetch(`${BASE_URL}/cart-details/cart/${cartId}`, {
-  //             headers: {
-  //                 Authorization: `Bearer ${token}`,
-  //             },
-  //         });
-  //
-  //         if (res.ok) {
-  //             const data = await res.json();
-  //             // Tính tổng số lượng (quantity) của tất cả sản phẩm trong giỏ
-  //             const total = data.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  //             setCartCount(total);
-  //         }
-  //     } catch (err) {
-  //         console.error("Lỗi cập nhật số lượng giỏ hàng tại Header:", err);
-  //     }
-  // };
-
-  // const fetchCartCount = async () => {
-  //     const token = localStorage.getItem("accessToken");
-  //
-  //     if (token) {
-  //         // TRƯỜNG HỢP 1: ĐÃ ĐĂNG NHẬP -> Gọi API lấy dữ liệu từ Database
-  //         try {
-  //             const cartId = localStorage.getItem("cartId") || 3; // Lấy từ localStorage hoặc mặc định bằng 3
-  //             const res = await fetch(`${BASE_URL}/cart-details/cart/${cartId}`, {
-  //                 headers: {
-  //                     "Authorization": `Bearer ${token}`
-  //                 }
-  //             });
-  //             if (res.ok) {
-  //                 const data = await res.json();
-  //                 // Cộng tổng quantity của toàn bộ sản phẩm trong giỏ hàng thật
-  //                 const totalQty = data.reduce((sum, item) => sum + item.quantity, 0);
-  //                 setCartCount(totalQty);
-  //             }
-  //         } catch (error) {
-  //             console.error("Lỗi khi lấy số lượng giỏ hàng thành viên:", error);
-  //         }
-  //     } else {
-  //         // TRƯỜNG HỢP 2: KHÁCH VÃNG LAI -> Tính tổng quantity trực tiếp từ LocalStorage
-  //         const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
-  //         const totalQty = guestCart.reduce((sum, item) => sum + item.quantity, 0);
-  //         setCartCount(totalQty);
-  //     }
-  // };
-
-  // --------------------------------------------------------
   useEffect(() => {
     const sessionAlive = sessionStorage.getItem("session_alive");
-
     if (!sessionAlive) {
-      // Tab mới hoặc browser vừa bật → logout
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
-
-      // Đánh dấu phiên đang hoạt động
       sessionStorage.setItem("session_alive", "true");
-
-      console.log("Tab/browser mới → auto logout");
-    } else {
-      console.log("Reload hoặc chuyển trang → giữ trạng thái đăng nhập");
     }
   }, []);
 
   const fetchCartCount = async () => {
     const token = localStorage.getItem("accessToken");
-
     if (token) {
-      // TRƯỜNG HỢP 1: ĐÃ ĐĂNG NHẬP -> Lấy tổng số lượng (totalQuantity) trực tiếp từ giỏ hàng User
       try {
-        // Lấy User từ localStorage để đảm bảo có ID mới nhất
         const storedUser = JSON.parse(localStorage.getItem("user"));
-
         if (storedUser && storedUser.id) {
           const res = await fetch(
             `${BASE_URL}/carts/account/${storedUser.id}`,
@@ -112,10 +39,8 @@ export default function Header() {
               headers: { Authorization: `Bearer ${token}` },
             },
           );
-
           if (res.ok) {
             const data = await res.json();
-            // Kế thừa ưu điểm từ đoạn code cũ bạn khóa: Lấy trực tiếp totalQuantity
             setCartCount(data.result?.totalQuantity || 0);
           }
         }
@@ -123,10 +48,7 @@ export default function Header() {
         console.error("Lỗi khi lấy số lượng giỏ hàng thành viên:", error);
       }
     } else {
-      // TRƯỜNG HỢP 2: KHÁCH VÃNG LAI -> Tính tổng quantity trực tiếp từ LocalStorage
       const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
-
-      // Ép kiểu Number() để chống lỗi cộng nối chuỗi thành "011"
       const totalQty = guestCart.reduce(
         (sum, item) => sum + Number(item.quantity || 0),
         0,
@@ -136,44 +58,15 @@ export default function Header() {
   };
 
   useEffect(() => {
-    // Chạy lần đầu tiên khi Header render
     fetchCartCount();
-
-    // Lắng nghe sự kiện (Được trigger khi Thêm/Sửa/Xóa/Gộp giỏ hàng)
     window.addEventListener("cartUpdated", fetchCartCount);
     window.addEventListener("storage", fetchCartCount);
-
-    // Hủy lắng nghe khi Component bị dỡ bỏ
     return () => {
       window.removeEventListener("cartUpdated", fetchCartCount);
       window.removeEventListener("storage", fetchCartCount);
     };
   }, []);
 
-  // // useEffect chuyên trách cập nhật số lượng giỏ hàng real-time
-  //     useEffect(() => {
-  //         // Chạy lần đầu tiên khi Header vừa hiển thị
-  //         fetchCartCount();
-  //
-  //         // Lắng nghe sự kiện "cartUpdated" khi có thao tác Thêm/Sửa/Xóa từ trang chi tiết hoặc trang giỏ hàng
-  //         window.addEventListener("cartUpdated", fetchCartCount);
-  //
-  //         // Lắng nghe thay đổi trạng thái đăng nhập/đăng xuất giữa các tabs/cửa sổ
-  //         window.addEventListener("storage", fetchCartCount);
-  //
-  //         // Hủy lắng nghe khi Header bị hủy (tránh leak bộ nhớ)
-  //         return () => {
-  //             window.removeEventListener("cartUpdated", fetchCartCount);
-  //             window.removeEventListener("storage", fetchCartCount);
-  //         };
-  //     }, []);
-  //     // Khởi chạy lấy số lượng khi load trang và lắng nghe sự kiện đồng bộ dữ liệu giữa các trang
-  //     useEffect(() => {
-  //         fetchCartCount();
-  //         window.addEventListener("cartUpdated", fetchCartCount);
-  //         return () => window.removeEventListener("cartUpdated", fetchCartCount);
-  //     }, []);
-  // Kiểm tra đăng nhập
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("accessToken");
@@ -189,7 +82,7 @@ export default function Header() {
       window.removeEventListener("logout", checkAuth);
     };
   }, []);
-  //lay thong tin gio hang
+
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
@@ -199,7 +92,6 @@ export default function Header() {
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem("accessToken");
-
       const res = await fetch(`${BASE_URL}/accounts/myinfor`, {
         headers: {
           "Content-Type": "application/json",
@@ -207,9 +99,7 @@ export default function Header() {
         },
       });
       const data = await res.json();
-      console.log("Tài khoản đang login: ", data.result);
       setUser(data.result);
-      // BẮT BUỘC PHẢI CÓ DÒNG NÀY: Để lưu user info dùng cho việc đếm giỏ hàng
       if (data.result && data.result.id) {
         localStorage.setItem("user", JSON.stringify(data.result));
       }
@@ -232,7 +122,6 @@ export default function Header() {
         },
       });
       const data = await res.json();
-      console.log("Cart của user: ", data.result);
       setCart(data.result);
     } catch (error) {
       console.error("Lỗi fetch cart: ", error);
@@ -240,22 +129,17 @@ export default function Header() {
   };
 
   useEffect(() => {
-    if (user?.id) {
-      fetchCart();
-    }
+    if (user?.id) fetchCart();
   }, [user]);
 
   useEffect(() => {
     const handleCartUpdated = () => {
-      if (user?.id) {
-        fetchCart();
-      }
+      if (user?.id) fetchCart();
     };
     window.addEventListener("cartUpdated", handleCartUpdated);
     return () => window.removeEventListener("cartUpdated", handleCartUpdated);
   }, [user]);
 
-  // Đóng dropdown khi click ngoài
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -271,7 +155,6 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Tìm kiếm sản phẩm
   useEffect(() => {
     const searchProducts = async () => {
       if (searchQuery.trim().length < 1) {
@@ -279,7 +162,6 @@ export default function Header() {
         setShowDropdown(false);
         return;
       }
-
       setIsSearching(true);
       try {
         const response = await fetch(`${BASE_URL}/products`);
@@ -299,22 +181,16 @@ export default function Header() {
         setIsSearching(false);
       }
     };
-
     const timeoutId = setTimeout(searchProducts, 300);
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
-    localStorage.removeItem("user"); // BỔ SUNG: Xóa sạch thông tin user để tránh xung đột dữ liệu cũ
-
+    localStorage.removeItem("user");
     setIsLoggedIn(false);
-
-    // BỔ SUNG QUAN TRỌNG: Bắn sự kiện "cartUpdated" để hàm fetchCartCount() lập tức chạy lại,
-    // chuyển số lượng hiển thị về giỏ hàng tạm của Guest (bằng 0 hoặc giỏ guest cũ nếu có).
     window.dispatchEvent(new Event("cartUpdated"));
     window.dispatchEvent(new Event("logout"));
-
     navigate("/");
   };
 
@@ -334,473 +210,727 @@ export default function Header() {
 
   const isActive = (path) => location.pathname === path;
 
+  const navLinks = [
+    { to: "/", label: "Home" },
+    { to: "/product", label: "Product" },
+    { to: "/about", label: "About Us" },
+    { to: "/policy", label: "Policy" },
+  ];
+
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-3xl sm:text-4xl font-bold tracking-tight">
-              H<span className="text-red-500">K</span>T STUDIO
-            </span>
-          </Link>
+    <header
+      style={{
+        background: "#faf9f7",
+        borderBottom: "1px solid #e8e4df",
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        fontFamily: "sans-serif",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: "0 auto",
+          padding: "0 24px",
+          height: 64,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        {/* Logo */}
+        <Link to="/" style={{ textDecoration: "none" }}>
+          <span
+            style={{
+              fontFamily: "'Georgia', serif",
+              fontSize: "1.25rem",
+              fontWeight: 400,
+              letterSpacing: "0.12em",
+              color: "#1a1a1a",
+            }}
+          >
+            HK<span style={{ color: "#c8a96e" }}>T</span> STUDIO
+          </span>
+        </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-12">
+        {/* Desktop Navigation */}
+        <nav
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 40,
+          }}
+          className="desktop-nav"
+        >
+          {navLinks.map(({ to, label }) => (
             <Link
-              to="/"
-              className={`font-bold text-lg transition ${
-                isActive("/")
-                  ? "text-red-500"
-                  : "text-gray-800 hover:text-red-500"
-              }`}
+              key={to}
+              to={to}
+              style={{
+                textDecoration: "none",
+                fontSize: "0.72rem",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                color: isActive(to) ? "#1a1a1a" : "#888",
+                borderBottom: isActive(to)
+                  ? "1px solid #1a1a1a"
+                  : "1px solid transparent",
+                paddingBottom: 2,
+                transition: "color 0.2s, border-color 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive(to)) e.currentTarget.style.color = "#1a1a1a";
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive(to)) e.currentTarget.style.color = "#888";
+              }}
             >
-              Home
+              {label}
             </Link>
-            <Link
-              to="/product"
-              className={`font-bold text-lg transition ${
-                isActive("/product")
-                  ? "text-red-500"
-                  : "text-gray-800 hover:text-red-500"
-              }`}
-            >
-              Product
-            </Link>
-            <Link
-              to="/about"
-              className={`font-bold text-lg transition ${
-                isActive("/about")
-                  ? "text-red-500"
-                  : "text-gray-800 hover:text-red-500"
-              }`}
-            >
-              About Us
-            </Link>
-            <Link
-              to="/policy"
-              className={`font-bold text-lg transition ${
-                isActive("/policy")
-                  ? "text-red-500"
-                  : "text-gray-800 hover:text-red-500"
-              }`}
-            >
-              Policy
-            </Link>
-          </nav>
+          ))}
+        </nav>
 
-          {/* Icons */}
-          <div className="flex items-center gap-6 sm:gap-8">
-            {/* Search Bar with Dropdown */}
-            <div className="relative hidden sm:block" ref={searchRef}>
-              {searchOpen ? (
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search product..."
-                    className="border border-gray-300 rounded-full px-5 py-2.5 w-48 lg:w-64 focus:outline-none focus:border-red-500 text-base pr-10"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    autoFocus
-                  />
-                  <button
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
-                    onClick={() => {
-                      setSearchOpen(false);
-                      setSearchQuery("");
-                      setShowDropdown(false);
-                    }}
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              ) : (
+        {/* Icons */}
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          {/* Search */}
+          <div
+            style={{ position: "relative" }}
+            ref={searchRef}
+            className="search-desktop"
+          >
+            {searchOpen ? (
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  style={{
+                    border: "none",
+                    borderBottom: "1px solid #1a1a1a",
+                    background: "transparent",
+                    padding: "4px 28px 4px 0",
+                    width: 180,
+                    fontSize: "0.8rem",
+                    letterSpacing: "0.04em",
+                    outline: "none",
+                    color: "#1a1a1a",
+                    fontFamily: "sans-serif",
+                  }}
+                />
                 <button
-                  onClick={() => setSearchOpen(true)}
-                  className="text-gray-600 hover:text-red-500 transition"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setSearchQuery("");
+                    setShowDropdown(false);
+                  }}
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#888",
+                    display: "flex",
+                    padding: 0,
+                  }}
                 >
-                  <Search size={26} strokeWidth={2} />
+                  <X size={16} />
                 </button>
-              )}
-
-              {/* Search Results Dropdown */}
-              {showDropdown && searchResults.length > 0 && (
-                <div
-                  ref={dropdownRef}
-                  className="absolute top-full mt-2 w-80 lg:w-96 bg-white rounded-lg shadow-2xl border border-gray-200 max-h-96 overflow-y-auto z-50"
-                >
-                  {isSearching && (
-                    <div className="p-4 text-center text-gray-500">
-                      Đang tìm kiếm...
-                    </div>
-                  )}
-
-                  {!isSearching &&
-                    searchResults.map((product) => (
-                      <button
-                        key={product.id}
-                        onClick={() => handleProductClick(product.id)}
-                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition border-b border-gray-100 last:border-b-0"
-                      >
-                        <img
-                          src={product.imageUrlFront}
-                          alt={product.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                        <div className="flex-1 text-left">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-semibold text-sm line-clamp-2 flex-1">
-                              {product.name}
-                            </h4>
-                            {/* SOLD OUT BADGE */}
-                            {product.quantity === 0 && (
-                              <span className="bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
-                                SOLD OUT
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-red-500 font-bold text-sm mt-1">
-                            {formatPrice(product.price)}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                </div>
-              )}
-            </div>
-
-            {/* Auth */}
-            {/* --- ĐOẠN ĐÃ SỬA: TÁCH BIỆT GIỎ HÀNG RA NGOÀI ĐIỀU KIỆN AUTH --- */}
-            {isLoggedIn ? (
-              <div className="relative group">
-                <button className="text-gray-600 hover:text-red-500 transition">
-                  <User size={26} strokeWidth={2} />
-                </button>
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  <Link
-                    to="/profile"
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-t-lg"
-                  >
-                    Profile
-                  </Link>
-                  <Link
-                    to="/wishlists"
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                  >
-                    Wish List
-                  </Link>
-                  <Link
-                    to="/orders"
-                    onClick={() => localStorage.setItem("userId", user.id)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                  >
-                    My Orders
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 rounded-b-lg flex items-center gap-2"
-                  >
-                    <LogOut size={16} />
-                    Logout
-                  </button>
-                </div>
               </div>
             ) : (
-              <div className="hidden sm:flex items-center gap-3">
+              <button
+                onClick={() => setSearchOpen(true)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#888",
+                  display: "flex",
+                  padding: 0,
+                  transition: "color 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#1a1a1a")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#888")}
+              >
+                <Search size={20} strokeWidth={1.5} />
+              </button>
+            )}
+
+            {/* Search Dropdown */}
+            {showDropdown && searchResults.length > 0 && (
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  marginTop: 12,
+                  width: 320,
+                  background: "#faf9f7",
+                  border: "1px solid #e8e4df",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
+                  zIndex: 100,
+                  maxHeight: 380,
+                  overflowY: "auto",
+                }}
+              >
+                {searchResults.map((product, idx) => (
+                  <button
+                    key={product.id}
+                    onClick={() => handleProductClick(product.id)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 16px",
+                      background: "none",
+                      border: "none",
+                      borderBottom:
+                        idx < searchResults.length - 1
+                          ? "1px solid #e8e4df"
+                          : "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "#f0ece6")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "none")
+                    }
+                  >
+                    <img
+                      src={product.imageUrlFront}
+                      alt={product.name}
+                      style={{
+                        width: 48,
+                        height: 48,
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                        }}
+                      >
+                        <p
+                          style={{
+                            fontFamily: "'Georgia', serif",
+                            fontSize: "0.82rem",
+                            margin: 0,
+                            color: "#1a1a1a",
+                          }}
+                        >
+                          {product.name}
+                        </p>
+                        {product.quantity === 0 && (
+                          <span
+                            style={{
+                              fontSize: "0.6rem",
+                              letterSpacing: "0.1em",
+                              textTransform: "uppercase",
+                              color: "#888",
+                              border: "1px solid #ccc",
+                              padding: "2px 6px",
+                              flexShrink: 0,
+                            }}
+                          >
+                            Sold Out
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#888",
+                          margin: "4px 0 0",
+                          fontFamily: "sans-serif",
+                        }}
+                      >
+                        {formatPrice(product.price)}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Auth */}
+          {isLoggedIn ? (
+            <div style={{ position: "relative" }} className="user-menu-wrap">
+              <button
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#888",
+                  display: "flex",
+                  padding: 0,
+                  transition: "color 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#1a1a1a")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#888")}
+              >
+                <User size={20} strokeWidth={1.5} />
+              </button>
+              <div
+                className="user-dropdown"
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "calc(100% + 12px)",
+                  width: 180,
+                  background: "#faf9f7",
+                  border: "1px solid #e8e4df",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
+                  zIndex: 100,
+                  opacity: 0,
+                  visibility: "hidden",
+                  transition: "opacity 0.2s, visibility 0.2s",
+                }}
+              >
+                {[
+                  { to: "/profile", label: "Profile" },
+                  { to: "/wishlists", label: "Wish List" },
+                  {
+                    to: "/orders",
+                    label: "My Orders",
+                    onClick: () => localStorage.setItem("userId", user?.id),
+                  },
+                ].map(({ to, label, onClick }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={onClick}
+                    style={{
+                      display: "block",
+                      padding: "12px 16px",
+                      fontSize: "0.75rem",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "#888",
+                      textDecoration: "none",
+                      borderBottom: "1px solid #e8e4df",
+                      transition: "color 0.15s, background 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "#1a1a1a";
+                      e.currentTarget.style.background = "#f0ece6";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "#888";
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    {label}
+                  </Link>
+                ))}
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "12px 16px",
+                    background: "none",
+                    border: "none",
+                    fontSize: "0.75rem",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#888",
+                    cursor: "pointer",
+                    transition: "color 0.15s, background 0.15s",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "#1a1a1a";
+                    e.currentTarget.style.background = "#f0ece6";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "#888";
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <LogOut size={14} /> Logout
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 10 }}
+              className="auth-buttons"
+            >
+              <Link
+                to="/login"
+                style={{
+                  padding: "8px 20px",
+                  background: "#1a1a1a",
+                  color: "#faf9f7",
+                  textDecoration: "none",
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "#333")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "#1a1a1a")
+                }
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/register"
+                style={{
+                  padding: "8px 20px",
+                  background: "transparent",
+                  color: "#1a1a1a",
+                  textDecoration: "none",
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  border: "1px solid #1a1a1a",
+                  transition: "background 0.2s, color 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#1a1a1a";
+                  e.currentTarget.style.color = "#faf9f7";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "#1a1a1a";
+                }}
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
+
+          {/* Cart */}
+          <Link
+            to="/cart"
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              color: "#888",
+              textDecoration: "none",
+              transition: "color 0.2s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#1a1a1a")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#888")}
+          >
+            <ShoppingCart size={20} strokeWidth={1.5} />
+            {cartCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  right: -8,
+                  background: "#1a1a1a",
+                  color: "#faf9f7",
+                  fontSize: "0.6rem",
+                  fontWeight: 600,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 3px",
+                  letterSpacing: 0,
+                }}
+              >
+                {cartCount}
+              </span>
+            )}
+          </Link>
+
+          {/* Mobile Hamburger */}
+          <button
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#888",
+              display: "none",
+              padding: 0,
+            }}
+            className="mobile-menu-btn"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            {menuOpen ? (
+              <X size={22} strokeWidth={1.5} />
+            ) : (
+              <Menu size={22} strokeWidth={1.5} />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      {menuOpen && (
+        <div
+          style={{
+            background: "#faf9f7",
+            borderTop: "1px solid #e8e4df",
+            padding: "24px",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {navLinks.map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  textDecoration: "none",
+                  fontSize: "0.75rem",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color: isActive(to) ? "#1a1a1a" : "#888",
+                  padding: "14px 0",
+                  borderBottom: "1px solid #e8e4df",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                {label}
+                {isActive(to) && (
+                  <span
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: "50%",
+                      background: "#c8a96e",
+                    }}
+                  />
+                )}
+              </Link>
+            ))}
+
+            {!isLoggedIn && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  marginTop: 20,
+                }}
+              >
                 <Link
                   to="/login"
-                  className="px-5 py-2.5 bg-black text-white rounded-full font-medium text-sm hover:bg-red-500 transition"
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    padding: "12px",
+                    background: "#1a1a1a",
+                    color: "#faf9f7",
+                    textDecoration: "none",
+                    fontSize: "0.7rem",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    textAlign: "center",
+                  }}
                 >
                   Sign In
                 </Link>
                 <Link
                   to="/register"
-                  className="px-5 py-2.5 border border-black text-black rounded-full font-medium text-sm hover:bg-black hover:text-white transition"
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    padding: "12px",
+                    background: "transparent",
+                    color: "#1a1a1a",
+                    textDecoration: "none",
+                    fontSize: "0.7rem",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    textAlign: "center",
+                    border: "1px solid #1a1a1a",
+                  }}
                 >
                   Sign Up
                 </Link>
               </div>
             )}
 
-            {/* ĐƯA GIỎ HÀNG RA ĐÂY (Luôn hiển thị song song cạnh cụm Login/User) */}
-            <Link
-              to="/cart"
-              className="relative p-2 text-gray-600 hover:text-red-500 transition flex items-center justify-center"
-            >
-              <ShoppingCart size={26} strokeWidth={2} />
+            {isLoggedIn && (
+              <div
+                style={{
+                  marginTop: 20,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 0,
+                }}
+              >
+                {[
+                  { to: "/profile", label: "Profile" },
+                  { to: "/wishlists", label: "Wish List" },
+                  { to: "/orders", label: "My Orders" },
+                ].map(({ to, label }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={() => setMenuOpen(false)}
+                    style={{
+                      padding: "12px 0",
+                      fontSize: "0.72rem",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "#888",
+                      textDecoration: "none",
+                      borderBottom: "1px solid #e8e4df",
+                    }}
+                  >
+                    {label}
+                  </Link>
+                ))}
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setMenuOpen(false);
+                  }}
+                  style={{
+                    padding: "12px 0",
+                    fontSize: "0.72rem",
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "#888",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    textAlign: "left",
+                  }}
+                >
+                  <LogOut size={14} /> Logout
+                </button>
+              </div>
+            )}
 
-              {/* Chấm đỏ Badge số lượng tự động nhảy số */}
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-red-600 rounded-full min-w-[18px] h-[18px] shadow-sm border border-white animate-pulse">
-                  {cartCount}
-                </span>
+            {/* Mobile Search */}
+            <div style={{ marginTop: 20 }}>
+              <input
+                type="text"
+                placeholder="Search product..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  borderBottom: "1px solid #1a1a1a",
+                  background: "transparent",
+                  padding: "8px 0",
+                  fontSize: "0.8rem",
+                  letterSpacing: "0.04em",
+                  outline: "none",
+                  color: "#1a1a1a",
+                  fontFamily: "sans-serif",
+                  boxSizing: "border-box",
+                }}
+              />
+              {showDropdown && searchResults.length > 0 && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    border: "1px solid #e8e4df",
+                    background: "#faf9f7",
+                  }}
+                >
+                  {searchResults.map((product, idx) => (
+                    <button
+                      key={product.id}
+                      onClick={() => {
+                        handleProductClick(product.id);
+                        setMenuOpen(false);
+                      }}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "10px 12px",
+                        background: "none",
+                        border: "none",
+                        borderBottom:
+                          idx < searchResults.length - 1
+                            ? "1px solid #e8e4df"
+                            : "none",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <img
+                        src={product.imageUrlFront}
+                        alt={product.name}
+                        style={{ width: 40, height: 40, objectFit: "cover" }}
+                      />
+                      <div>
+                        <p
+                          style={{
+                            fontFamily: "'Georgia', serif",
+                            fontSize: "0.78rem",
+                            margin: 0,
+                            color: "#1a1a1a",
+                          }}
+                        >
+                          {product.name}
+                        </p>
+                        <p
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "#888",
+                            margin: "2px 0 0",
+                          }}
+                        >
+                          {formatPrice(product.price)}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
-            </Link>
-            {/* ------------------------------------------------------------- */}
-
-            {/*{isLoggedIn ? (*/}
-            {/*  <>*/}
-            {/*    <div className="relative group">*/}
-            {/*      <button className="text-gray-600 hover:text-red-500 transition">*/}
-            {/*        <User size={26} strokeWidth={2} />*/}
-            {/*      </button>*/}
-            {/*      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">*/}
-            {/*        <Link*/}
-            {/*          to="/profile"*/}
-            {/*          className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-t-lg"*/}
-            {/*        >*/}
-            {/*          Profile*/}
-            {/*        </Link>*/}
-            {/*        <Link*/}
-            {/*          to="/wishlists"*/}
-            {/*          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"*/}
-            {/*        >*/}
-            {/*          Wish List*/}
-            {/*        </Link>*/}
-            {/*        <Link*/}
-            {/*          to="/orders"*/}
-            {/*          onClick={() => {*/}
-            {/*            localStorage.setItem("userId", user.id);*/}
-            {/*          }}*/}
-            {/*          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"*/}
-            {/*        >*/}
-            {/*          My Orders*/}
-            {/*        </Link>*/}
-            {/*        <button*/}
-            {/*          onClick={handleLogout}*/}
-            {/*          className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 rounded-b-lg flex items-center gap-2"*/}
-            {/*        >*/}
-            {/*          <LogOut size={16} />*/}
-            {/*          Logout*/}
-            {/*        </button>*/}
-            {/*      </div>*/}
-            {/*    </div>*/}
-
-            {/*<button*/}
-            {/*  onClick={() => navigate("/cart")}*/}
-            {/*  className="text-gray-600 hover:text-red-500 transition relative"*/}
-            {/*>*/}
-            {/*  <ShoppingCart size={26} strokeWidth={2} />*/}
-            {/*  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">*/}
-            {/*    {cart?.totalQuantity}*/}
-            {/*  </span>*/}
-            {/*</button>*/}
-
-            {/* Bọc icon giỏ hàng bằng Link chuyển trang, bắt buộc có lớp relative */}
-            {/*              <Link*/}
-            {/*                  to="/cart"*/}
-            {/*                  className="relative p-2 text-gray-700 hover:text-black transition-colors flex items-center justify-center"*/}
-            {/*              >*/}
-            {/*                  /!* Icon giỏ hàng từ thư viện lucide-react *!/*/}
-            {/*                  <ShoppingCart size={24} />*/}
-
-            {/*                  /!* Chỉ hiển thị vòng tròn đỏ CHỨA SỐ nếu số lượng lớn hơn 0 *!/*/}
-            {/*                  {cartCount > 0 && (*/}
-            {/*                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md border border-white animate-pulse">*/}
-            {/*  {cartCount}*/}
-            {/*</span>*/}
-            {/*                  )}*/}
-            {/*              </Link>*/}
-
-            {/*              <Link to="/cart" className="relative p-2 text-gray-700 hover:text-black transition flex items-center justify-center">*/}
-            {/*                  <ShoppingCart size={24} />*/}
-
-            {/*                  /!* Chấm đỏ Badge hiển thị số lượng, tự động ẩn nếu giỏ hàng bằng 0 *!/*/}
-            {/*                  {cartCount > 0 && (*/}
-            {/*                      <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full min-w-[18px] h-[18px] shadow-sm">*/}
-            {/*  {cartCount}*/}
-            {/*</span>*/}
-            {/*                  )}*/}
-            {/*              </Link>*/}
-            {/*          </>*/}
-            {/*        ) : (*/}
-            {/*          <div className="hidden sm:flex items-center gap-3">*/}
-            {/*            <Link*/}
-            {/*              to="/login"*/}
-            {/*              className="px-5 py-2.5 bg-black text-white rounded-full font-medium text-sm hover:bg-red-500 transition"*/}
-            {/*            >*/}
-            {/*              Sign In*/}
-            {/*            </Link>*/}
-            {/*            <Link*/}
-            {/*              to="/register"*/}
-            {/*              className="px-5 py-2.5 border border-black text-black rounded-full font-medium text-sm hover:bg-black hover:text-white transition"*/}
-            {/*            >*/}
-            {/*              Sign Up*/}
-            {/*            </Link>*/}
-            {/*          </div>*/}
-            {/*        )}*/}
-
-            {/* Mobile Menu Button */}
-            <button
-              className="lg:hidden text-gray-600 hover:text-red-500 transition"
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              {menuOpen ? (
-                <X size={28} strokeWidth={2} />
-              ) : (
-                <Menu size={28} strokeWidth={2} />
-              )}
-            </button>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Mobile Menu */}
-        {menuOpen && (
-          <nav className="lg:hidden mt-4 pb-4 border-t border-gray-200 pt-4">
-            <div className="flex flex-col gap-3">
-              <Link
-                to="/"
-                onClick={() => setMenuOpen(false)}
-                className={`font-bold text-base py-2 transition flex items-center justify-between ${
-                  isActive("/")
-                    ? "text-red-500"
-                    : "text-gray-800 hover:text-red-500"
-                }`}
-              >
-                Home {isActive("/") && <span className="text-red-500">•</span>}
-              </Link>
-
-              <Link
-                to="/product"
-                onClick={() => setMenuOpen(false)}
-                className={`font-bold text-base py-2 transition flex items-center justify-between ${
-                  isActive("/product")
-                    ? "text-red-500"
-                    : "text-gray-800 hover:text-red-500"
-                }`}
-              >
-                Product{" "}
-                {isActive("/product") && (
-                  <span className="text-red-500">•</span>
-                )}
-              </Link>
-
-              <Link
-                to="/about"
-                onClick={() => setMenuOpen(false)}
-                className={`font-bold text-base py-2 transition flex items-center justify-between ${
-                  isActive("/about")
-                    ? "text-red-500"
-                    : "text-gray-800 hover:text-red-500"
-                }`}
-              >
-                About Us{" "}
-                {isActive("/about") && <span className="text-red-500">•</span>}
-              </Link>
-
-              <Link
-                to="/policy"
-                onClick={() => setMenuOpen(false)}
-                className={`font-bold text-base py-2 transition flex items-center justify-between ${
-                  isActive("/policy")
-                    ? "text-red-500"
-                    : "text-gray-800 hover:text-red-500"
-                }`}
-              >
-                Policy{" "}
-                {isActive("/policy") && <span className="text-red-500">•</span>}
-              </Link>
-
-              {/* Mobile Auth */}
-              {!isLoggedIn && (
-                <div className="flex flex-col gap-2 pt-2">
-                  <Link
-                    to="/login"
-                    className="px-5 py-2.5 bg-black text-white rounded-full font-medium text-center"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="px-5 py-2.5 border border-black text-black rounded-full font-medium text-center hover:bg-black hover:text-white transition"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Sign Up
-                  </Link>
-                </div>
-              )}
-
-              {isLoggedIn && (
-                <div className="pt-2 border-t border-gray-200 mt-2">
-                  <Link
-                    to="/profile"
-                    className="block py-2 text-gray-700 font-bold hover:text-red-500"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Profile
-                  </Link>
-                  <Link
-                    to="/orders"
-                    className="block py-2 text-gray-700 font-bold hover:text-red-500"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    My Orders
-                  </Link>
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setMenuOpen(false);
-                    }}
-                    className="w-full text-left py-2 text-red-600 font-bold flex items-center gap-2"
-                  >
-                    <LogOut size={16} />
-                    Logout
-                  </button>
-                </div>
-              )}
-
-              {/* Mobile Search */}
-              <div className="sm:hidden pt-2">
-                <input
-                  type="text"
-                  placeholder="Search product..."
-                  className="w-full border border-gray-300 rounded-full px-4 py-2.5 focus:outline-none focus:border-red-500 text-base"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-
-                {showDropdown && searchResults.length > 0 && (
-                  <div className="mt-2 bg-white rounded-lg shadow-xl border border-gray-200 max-h-64 overflow-y-auto">
-                    {searchResults.map((product) => (
-                      <button
-                        key={product.id}
-                        onClick={() => {
-                          handleProductClick(product.id);
-                          setMenuOpen(false);
-                        }}
-                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition border-b border-gray-100 last:border-b-0"
-                      >
-                        <img
-                          src={product.imageUrlFront}
-                          alt={product.name}
-                          className="w-12 h-12 object-cover rounded"
-                        />
-                        <div className="flex-1 text-left">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-semibold text-xs line-clamp-2 flex-1">
-                              {product.name}
-                            </h4>
-                            {/* SOLD OUT BADGE - MOBILE */}
-                            {product.quantity === 0 && (
-                              <span className="bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full text-[10px]">
-                                SOLD OUT
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-red-500 font-bold text-xs mt-1">
-                            {formatPrice(product.price)}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </nav>
-        )}
-      </div>
+      {/* Inline styles for hover states and responsive */}
+      <style>{`
+        @media (max-width: 900px) {
+          .desktop-nav { display: none !important; }
+          .auth-buttons { display: none !important; }
+          .search-desktop { display: none !important; }
+          .mobile-menu-btn { display: flex !important; }
+        }
+        .user-menu-wrap:hover .user-dropdown {
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+      `}</style>
     </header>
   );
 }

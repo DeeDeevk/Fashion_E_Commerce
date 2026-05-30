@@ -19,7 +19,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
@@ -105,33 +106,17 @@ public class OrderService {
 
 
 
-    public List<DetailedOrderResponse> getDetailedOrders() {
-
-        List<Object[]> rows = orderRepository.getDetailedOrders();
-        List<DetailedOrderResponse> result = new ArrayList<>();
-
-        for (Object[] row : rows) {
-
-            String id = (String) row[0];
-            String customer = (String) row[1];
-            double total = (double) row[2];
-            String payment = convertPayment(row[3].toString());
-            String status = convertStatus(row[4].toString());
-            Date date = (Date) row[5];
-            int items = (int) row[6];
-
-            result.add(new DetailedOrderResponse(
-                    id,
-                    customer,
-                    total,
-                    payment,
-                    status,
-                    formatDate(date),
-                    items
-            ));
-        }
-
-        return result;
+    public Page<DetailedOrderResponse> getDetailedOrders(Pageable pageable) {
+        Page<Object[]> rows = orderRepository.getDetailedOrders(pageable);
+        return rows.map(row -> new DetailedOrderResponse(
+                (String) row[0],
+                (String) row[1],
+                ((Number) row[2]).doubleValue(),
+                convertPayment(row[3].toString()),
+                convertStatus(row[4].toString()),
+                formatDate((Date) row[5]),
+                ((Number) row[6]).intValue()
+        ));
     }
 
     private String formatDate(Date date) {
