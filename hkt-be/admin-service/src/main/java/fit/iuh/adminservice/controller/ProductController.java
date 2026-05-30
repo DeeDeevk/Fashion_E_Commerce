@@ -9,6 +9,9 @@ import fit.iuh.adminservice.service.ProductService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
@@ -37,6 +40,7 @@ public class ProductController {
         response.setResult(productService.getProductById(id));
         return response;
     }
+
     @GetMapping("/batch")
     public ApiResponse<List<ProductResponse>> getProductsByIds(@RequestParam("ids") List<Integer> ids) {
         ApiResponse<List<ProductResponse>> response = new ApiResponse<>();
@@ -51,6 +55,24 @@ public class ProductController {
         response.setResult(productService.getProductsByIds(ids));
         return response;
     }
+
+    @GetMapping("/paged")
+    public Page<ProductResponse> getAllProductsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String status) {
+
+        Sort sort = direction.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        return productService.getAllProductsPaged(PageRequest.of(page, size, sort), search, category, status);
+    }
+
     @PostMapping
     public ApiResponse<ProductResponse> createProduct(@RequestBody ProductRequest productRequest) {
 //        ApiResponse<ProductResponse> response = new ApiResponse<>();
@@ -67,6 +89,7 @@ public class ProductController {
         response.setResult(productService.updateProduct(id, productRequest));
         return response;
     }
+
     @DeleteMapping("/{id}")
     public ApiResponse<String> deleteProduct(@PathVariable int id) {
         productService.deleteProduct(id);

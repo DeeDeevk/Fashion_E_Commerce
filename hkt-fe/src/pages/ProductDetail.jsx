@@ -234,7 +234,10 @@ const ProductDetail = () => {
           products.sort(
             (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
           );
-          products = products.filter((p) => p.id !== parseInt(id)).slice(0, 4);
+          products = products
+            .filter((p) => p.id !== parseInt(id) && p.status === "ACTIVE")
+            .slice(0, 4);
+
           setOtherProducts(products);
         }
       } catch (error) {
@@ -444,15 +447,12 @@ const ProductDetail = () => {
       const token = localStorage.getItem("accessToken");
 
       if (hasSizes && selectedSize) {
-        const resSize = await fetch(
-          `${BASE_URL}/sizes/${selectedSize}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
+        const resSize = await fetch(`${BASE_URL}/sizes/${selectedSize}`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
         const size = await resSize.json();
 
         const resSizeDetail = await fetch(

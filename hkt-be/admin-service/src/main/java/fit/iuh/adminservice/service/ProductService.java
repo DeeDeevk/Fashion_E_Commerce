@@ -11,6 +11,7 @@ import fit.iuh.adminservice.entities.Product;
 import fit.iuh.adminservice.entities.Size;
 import fit.iuh.adminservice.entities.SizeDetail;
 import fit.iuh.adminservice.enums.Status;
+import fit.iuh.adminservice.event.CacheEvictPublisher;
 import fit.iuh.adminservice.repository.CategoryRepository;
 import fit.iuh.adminservice.repository.ProductRepository;
 import fit.iuh.adminservice.repository.SizeRepository;
@@ -20,6 +21,9 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -34,6 +38,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProductService {
 
+    private final CacheEvictPublisher cacheEvictPublisher;
     ProductRepository productRepository;
     CategoryRepository categoryRepository;
     SizeRepository sizeRepository;
@@ -228,6 +233,7 @@ public class ProductService {
                 .toInstant()));
 
         Product savedProduct = productRepository.save(product);
+        cacheEvictPublisher.publicEvict("allProducts,productsByIds");
 
         return convertToProductResponse(savedProduct, 0L);
     }
@@ -307,6 +313,7 @@ public class ProductService {
                 .toInstant()));
 
         Product updatedProduct = productRepository.save(existingProduct);
+        cacheEvictPublisher.publicEvict("allProducts,productsByIds,product:" + id);
 
         return convertToProductResponse(updatedProduct, 0L);
     }
@@ -331,6 +338,7 @@ public class ProductService {
         existingProduct.setStatus(Status.INACTIVE);
 
         productRepository.save(existingProduct);
+        cacheEvictPublisher.publicEvict("allProducts,productsByIds,product:" + id);
     }
 
     // ==================== SALE PRODUCTS ====================
@@ -435,5 +443,32 @@ public class ProductService {
                         .build())
                 .sizeDetails(sizeDetailResponses)
                 .build();
+    }
+
+    public Page<ProductResponse> getAllProductsPaged(Pageable pageable, String search, String category, String status) {
+        System.out.println("GET PRODUCTS PAGED FROM MYSQL");
+        String searchParam = (search != null && !search.isBlank()) ? search : null;
+        String categoryParam = (category != null && !category.equals("ALL")) ? category : null;
+        String statusParam = (status != null && !status.equals("ALL")) ? status : null;
+
+        Page<Product> productPage = productRepository.findAllPagedWithFilter(searchParam, categoryParam, statusParam, pageable);
+
+        Map<Integer, Long> soldMap = new HashMap<>();
+        try {
+            Map<String, Object> response = restTemplate.getForObject(
+                    ORDER_SERVICE_URL + "/order-details/sold-quantity-all", Map.class);
+            if (response != null && response.containsKey("result")) {
+                Map<String, Object> raw = (Map<String, Object>) response.get("result");
+                raw.forEach((k, v) -> soldMap.put(Integer.parseInt(k), ((Number) v).longValue()));
+            }
+        } catch (Exception e) {
+            System.out.println("LỖI gọi order-service: " + e.getMessage());
+        }
+
+        List<ProductResponse> content = productPage.getContent().stream()
+                .map(p -> convertToProductResponse(p, soldMap.getOrDefault(p.getId(), 0L)))
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(content, pageable, productPage.getTotalElements());
     }
 }

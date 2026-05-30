@@ -23,6 +23,8 @@ export default function Products({ initialFilter = "ALL" }) {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailProduct, setDetailProduct] = useState(null);
   const [filterStock, setFilterStock] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   // === STATE MỚI CHO FILTER & SEARCH ===
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,22 +62,42 @@ export default function Products({ initialFilter = "ALL" }) {
 
   // --- EFFECT 2: Xử lý việc gọi API (chỉ chạy 1 lần khi vào trang) ---
   useEffect(() => {
-    loadProducts();
+    setCurrentPage(0); // reset về trang 1 khi filter thay đổi
+  }, [searchTerm, filterCategory, filterStatus]);
+  useEffect(() => {
+    loadProducts(currentPage);
+  }, [currentPage, searchTerm, filterCategory, filterStatus]);
+  useEffect(() => {
     loadCategories();
   }, []);
 
-  const loadProducts = async () => {
+  const loadProducts = async (page = 0) => {
+    const token = localStorage.getItem("accessToken");
     try {
-      const token = localStorage.getItem("accessToken");
-      const res = await fetch(`${BASE_URL}/admin/products`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+      // Build query params
+      const params = new URLSearchParams({
+        page,
+        size: 10,
+        sortBy: "id",
+        direction: "desc",
       });
+      if (searchTerm) params.append("search", searchTerm);
+      if (filterCategory !== "ALL") params.append("category", filterCategory);
+      if (filterStatus !== "ALL") params.append("status", filterStatus);
+
+      const res = await fetch(
+        `${BASE_URL}/admin/products/paged?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
-      setProducts(data?.result || []);
+      setProducts(data.content ?? []);
+      setTotalPages(data.totalPages ?? 0);
     } catch (err) {
       console.log(err);
     }
@@ -328,46 +350,6 @@ export default function Products({ initialFilter = "ALL" }) {
   // ===============================
   // LOGIC LỌC VÀ SẮP XẾP (MỚI)
   // ===============================
-  const filteredProducts = products
-    .filter((product) => {
-      // 1. Lọc theo danh mục (Category)
-      const matchesCategory =
-        filterCategory === "ALL" || product.category?.name === filterCategory;
-
-      // 2. Lọc theo trạng thái (Status)
-      const matchesStatus =
-        filterStatus === "ALL" || product.status === filterStatus;
-
-      // 3. Tìm kiếm theo tên (Search)
-      const matchesSearch = product.name
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
-
-      // 👇👇👇 4. THÊM PHẦN NÀY: LỌC TỒN KHO 👇👇👇
-      let matchesStock = true;
-      if (filterStock === "LOW") {
-        // Chỉ lấy sản phẩm có số lượng <= 10
-        matchesStock = product.quantity <= 10;
-      }
-
-      return matchesCategory && matchesStatus && matchesSearch && matchesStock;
-    })
-    .sort((a, b) => {
-      // 4. Sắp xếp
-      switch (sortOption) {
-        case "price-asc": // Giá tăng dần
-          return a.price - b.price;
-        case "price-desc": // Giá giảm dần
-          return b.price - a.price;
-        case "name-asc": // Tên A-Z
-          return a.name.localeCompare(b.name);
-        case "stock-desc": // Tồn kho nhiều nhất
-          return b.quantity - a.quantity;
-        case "newest": // Mới nhất (theo ID hoặc field created_at nếu có)
-        default:
-          return b.id - a.id;
-      }
-    });
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
@@ -497,8 +479,8 @@ export default function Products({ initialFilter = "ALL" }) {
 
               <tbody className="divide-y divide-gray-100">
                 {/* LƯU Ý: Dùng filteredProducts thay vì products */}
-                {filteredProducts.length > 0 ? (
-                  filteredProducts.map((p) => (
+                {products.length > 0 ? (
+                  products.map((p) => (
                     <tr
                       key={p.id}
                       className="hover:bg-blue-50/50 transition-colors duration-200"
@@ -599,6 +581,71 @@ export default function Products({ initialFilter = "ALL" }) {
             </table>
           </div>
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 px-6 py-4">
+            <p className="text-sm text-gray-600">
+              Trang{" "}
+              <span className="font-bold text-gray-800">{currentPage + 1}</span>{" "}
+              / <span className="font-bold text-gray-800">{totalPages}</span>
+            </p>
+
+            <div className="flex items-center gap-2">
+              {/* Prev */}
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-600 font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                ← Trước
+              </button>
+
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }, (_, i) => i)
+                .filter(
+                  (i) =>
+                    i === 0 ||
+                    i === totalPages - 1 ||
+                    Math.abs(i - currentPage) <= 1,
+                )
+                .reduce((acc, i, idx, arr) => {
+                  if (idx > 0 && i - arr[idx - 1] > 1) acc.push("...");
+                  acc.push(i);
+                  return acc;
+                }, [])
+                .map((item, idx) =>
+                  item === "..." ? (
+                    <span key={`dot-${idx}`} className="px-2 text-gray-400">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setCurrentPage(item)}
+                      className={`w-10 h-10 rounded-xl font-bold text-sm transition-all ${
+                        currentPage === item
+                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
+                          : "border-2 border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {item + 1}
+                    </button>
+                  ),
+                )}
+
+              {/* Next */}
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages - 1, p + 1))
+                }
+                disabled={currentPage === totalPages - 1}
+                className="px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-600 font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                Sau →
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* DETAIL MODAL */}
         {showDetailModal && detailProduct && (

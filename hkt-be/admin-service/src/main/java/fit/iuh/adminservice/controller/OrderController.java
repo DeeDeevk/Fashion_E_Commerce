@@ -8,6 +8,8 @@ import fit.iuh.adminservice.service.OrderService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.ParseException;
@@ -26,6 +28,7 @@ public class OrderController {
     public List<OrderResponse> getAllOrders() {
         return orderService.getAllOrders();
     }
+
     @PostMapping("/create")
     public OrderResponse createOrder(@RequestBody OrderRequest orderRequest) throws ParseException {
         return orderService.createOrder(orderRequest);
@@ -37,14 +40,17 @@ public class OrderController {
     }
 
     @GetMapping("/detailed-orders")
-    public List<DetailedOrderResponse> getAllDetailedOrders() {
-        return orderService.getDetailedOrders();
+    public Page<DetailedOrderResponse> getAllDetailedOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return orderService.getDetailedOrders(PageRequest.of(page, size));
     }
 
     @GetMapping("/time-slots")
     public List<TimeSlotStatisticResponse> getTimeSlots() {
         return orderService.getTimeSlotStats();
     }
+
     @GetMapping("/daily")
     public List<DailyStatisticResponse> getDailyStats(
             @RequestParam String start,
@@ -59,7 +65,7 @@ public class OrderController {
     }
 
     @GetMapping("account/{account_id}")
-    public List<OrderResponse> getOrderByAccountId(@PathVariable int account_id){
+    public List<OrderResponse> getOrderByAccountId(@PathVariable int account_id) {
         return orderService.getOrdersByAccountId(account_id);
     }
 }

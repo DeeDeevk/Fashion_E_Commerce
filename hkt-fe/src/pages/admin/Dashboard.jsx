@@ -41,6 +41,10 @@ const Dashboard = () => {
   const [detailedOrders, setDetailedOrders] = useState([]);
   const [timeSlotData, setTimeSlotData] = useState([]);
   const [allData, setAllData] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const PAGE_SIZE = 10;
 
   // -------------------------
   // 1. DATE RANGE
@@ -87,14 +91,24 @@ const Dashboard = () => {
     }
   };
 
-  const fetchDetailedOrders = async () => {
+  const fetchDetailedOrders = async (page = 0) => {
+    console.log("fetchDetailedOrders called, page:", page);
     try {
-      const res = await fetch(`${BASE_URL}/admin/orders/detailed-orders`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setDetailedOrders(await res.json());
+      const res = await fetch(
+        `${BASE_URL}/admin/orders/detailed-orders?page=${page}&size=${PAGE_SIZE}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = await res.json();
+      console.log("res status:", res.status);
+      console.log("data:", data);
+      console.log("detailed-orders response:", data);
+
+      setDetailedOrders(data.content ?? []);
+      setTotalPages(data.totalPages ?? 0);
+      setTotalElements(data.totalElements ?? 0);
     } catch (err) {
       console.error("Error fetching detailed orders:", err);
+      setDetailedOrders([]); // fallback khi lỗi
     }
   };
 
@@ -123,9 +137,13 @@ const Dashboard = () => {
   useEffect(() => {
     fetchPaymentData();
     fetchRegionData();
-    fetchDetailedOrders();
     fetchTimeSlotData();
   }, []);
+
+  useEffect(() => {
+    console.log("useEffect currentPage triggered:", currentPage);
+    fetchDetailedOrders(currentPage);
+  }, [currentPage]);
 
   // -------------------------
   // 4. DATA NORMALIZATION (FILL MISSING DATES)
@@ -521,7 +539,7 @@ const Dashboard = () => {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis
-                dataKey="displayDate"
+                dataKey="date"
                 stroke="#6b7280"
                 style={{ fontSize: "12px" }}
               />
@@ -533,7 +551,12 @@ const Dashboard = () => {
                   borderRadius: "12px",
                   boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
                 }}
-                formatter={(value) => formatCurrency(value)}
+                formatter={(value, name) => {
+                  if (name === "Orders")
+                    return [value.toLocaleString(), "Orders"];
+                  return [formatCurrency(value), "Revenue"];
+                }}
+                labelFormatter={(label) => `${label}`} // format ngày cho đẹp
               />
               <Legend />
               <Area
@@ -805,26 +828,40 @@ const Dashboard = () => {
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
             <p className="text-sm text-gray-600">
               Showing{" "}
-              <span className="font-bold text-gray-800">
-                1-{detailedOrders.length}
+              <span>
+                {currentPage * PAGE_SIZE + 1}-
+                {currentPage * PAGE_SIZE + detailedOrders.length}
               </span>{" "}
-              of <span className="font-bold text-gray-800">{totalOrders}</span>{" "}
-              total orders
+              of <span>{totalElements}</span> total orders
             </p>
             <div className="flex gap-2">
-              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+              >
                 Prev
               </button>
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition">
-                1
-              </button>
-              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">
-                2
-              </button>
-              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">
-                3
-              </button>
-              <button className="px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium transition">
+
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i)}
+                  className={
+                    currentPage === i
+                      ? "bg-indigo-600 text-white ..."
+                      : "border-2 ..."
+                  }
+                >
+                  {i + 1}
+                </button>
+              ))}
+
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages - 1, p + 1))
+                }
+                disabled={currentPage === totalPages - 1}
+              >
                 Next
               </button>
             </div>
