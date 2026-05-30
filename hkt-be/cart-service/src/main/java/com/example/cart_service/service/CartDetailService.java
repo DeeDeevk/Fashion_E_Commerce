@@ -92,21 +92,36 @@ public class CartDetailService {
         return cartDetailMapper.toCartDetailResponse(updated);
     }
 
-    public CartDetailResponse updateCartDetailDecreaseQuantity(int cartDetailId){
-        CartDetail cartDetail = cartDetailRepository
-                .findById(cartDetailId)
-                .orElseThrow(() -> new RuntimeException("CartDetail not found"));
-        cartDetail.setQuantity(cartDetail.getQuantity() - 1);
-//        if(cartDetail.getQuantity() <= 0){
-//            deleteCartDetail(cartDetailId);
-//            return null;
-//        }
-        cartDetail.setSubtotal(cartDetail.getPrice_at_time() * cartDetail.getQuantity());
-        cartDetail.setUpdateAt(new Date());
-        CartDetail updated = cartDetailRepository.save(cartDetail);
-        return cartDetailMapper.toCartDetailResponse(updated);
+//    public CartDetailResponse updateCartDetailDecreaseQuantity(int cartDetailId){
+//        CartDetail cartDetail = cartDetailRepository
+//                .findById(cartDetailId)
+//                .orElseThrow(() -> new RuntimeException("CartDetail not found"));
+//        cartDetail.setQuantity(cartDetail.getQuantity() - 1);
+////        if(cartDetail.getQuantity() <= 0){
+////            deleteCartDetail(cartDetailId);
+////            return null;
+////        }
+//        cartDetail.setSubtotal(cartDetail.getPrice_at_time() * cartDetail.getQuantity());
+//        cartDetail.setUpdateAt(new Date());
+//        CartDetail updated = cartDetailRepository.save(cartDetail);
+//        return cartDetailMapper.toCartDetailResponse(updated);
+//    }
+public CartDetailResponse updateCartDetailDecreaseQuantity(int cartDetailId){
+    CartDetail cartDetail = cartDetailRepository
+            .findById(cartDetailId)
+            .orElseThrow(() -> new RuntimeException("CartDetail not found"));
+
+    // Thêm bắt lỗi nếu số lượng cố tình bị giảm xuống dưới 1
+    if (cartDetail.getQuantity() <= 1) {
+        throw new IllegalArgumentException("Số lượng sản phẩm trong giỏ không thể nhỏ hơn 1");
     }
 
+    cartDetail.setQuantity(cartDetail.getQuantity() - 1);
+    cartDetail.setSubtotal(cartDetail.getPrice_at_time() * cartDetail.getQuantity());
+    cartDetail.setUpdateAt(new Date());
+    CartDetail updated = cartDetailRepository.save(cartDetail);
+    return cartDetailMapper.toCartDetailResponse(updated);
+}
     public void deleteCartDetail(int cartDetailId) {
         CartDetail cartDetail = cartDetailRepository.findById(cartDetailId)
                 .orElseThrow(() -> new RuntimeException("CartDetail not found"));
