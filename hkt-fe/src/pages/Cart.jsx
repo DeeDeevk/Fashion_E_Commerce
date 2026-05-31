@@ -219,73 +219,205 @@ const Cart = () => {
     }
   };
 
-  const handleToggleDecrease = async (
-    cartDetailId,
-    priceAtTime,
-    currentQuantity,
-    subtotal,
-  ) => {
-    if (!user?.id) {
-      if (currentQuantity <= 1) {
-        if (
-          window.confirm("Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?")
-        ) {
-          handleDelete(cartDetailId, currentQuantity, subtotal);
+  // Thêm currentQuantity và subtotal vào tham số truyền vào
+  // const handleToggleDecrease = async (cartDetailId, priceAtTime, currentQuantity, subtotal) => {
+  //     // NẾU SỐ LƯỢNG ĐANG LÀ 1 -> Bấm trừ nghĩa là XÓA HẲN sản phẩm
+  //     if (currentQuantity <= 1) {
+  //         if (window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?")) {
+  //             handleDelete(cartDetailId, currentQuantity, subtotal);
+  //         }
+  //         return; // Dừng hàm lại không gọi API decrease nữa
+  //     }
+  //
+  //     try {
+  //         const token = localStorage.getItem("accessToken");
+  //         const res = await fetch(
+  //             `${BASE_URL}/cart-details/${cartDetailId}/decrease-quantity`,
+  //             {
+  //                 method: "PUT",
+  //                 headers: {
+  //                     "Content-Type": "application/json",
+  //                     Authorization: `Bearer ${token}`,
+  //                 },
+  //             }
+  //         );
+  //
+  //         const data = await res.json();
+  //
+  //         // Đoạn check data.quantity === 0 lúc này có thể bỏ hoặc giữ làm fallback
+  //         setCartItems((prev) =>
+  //             prev.map((item) =>
+  //                 item.id === cartDetailId ? { ...item, ...data } : item
+  //             )
+  //         );
+  //
+  //         const resCart = await fetch(
+  //             `${BASE_URL}/carts/update/${cart.id}/decrease`,
+  //             {
+  //                 method: "PUT",
+  //                 headers: {
+  //                     "Content-Type": "application/json",
+  //                     Authorization: `Bearer ${token}`,
+  //                 },
+  //                 body: JSON.stringify({ price: priceAtTime }),
+  //             }
+  //         );
+  //
+  //         if (resCart.ok) {
+  //             window.dispatchEvent(new Event("cartUpdated"));
+  //         }
+  //     } catch (err) {
+  //         console.error("Lỗi update select: ", err);
+  //     }
+  // };
+  // SỬA TẠI ĐÂY: Nhận thêm currentQuantity và subtotal từ giao diện truyền vào
+  // const handleToggleDecrease = async (
+  //   cartDetailId,
+  //   priceAtTime,
+  //   currentQuantity,
+  //   subtotal,
+  // ) => {
+  //   // XỬ LÝ NẾU LÀ GUEST
+  //   if (!user?.id) {
+  //     if (currentQuantity <= 1) {
+  //       if (
+  //         window.confirm("Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?")
+  //       ) {
+  //         handleDelete(cartDetailId, currentQuantity, subtotal);
+  //       }
+  //       return;
+  //     }
+  //     const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+  //     const updatedCart = guestCart.map((item) => {
+  //       if (item.id === cartDetailId) {
+  //         const newQty = item.quantity - 1;
+  //         return {
+  //           ...item,
+  //           quantity: newQty,
+  //           subtotal: newQty * item.priceAtTime,
+  //         };
+  //       }
+  //       return item;
+  //     });
+  //     localStorage.setItem("guestCart", JSON.stringify(updatedCart));
+  //     setCartItems(updatedCart);
+  //     window.dispatchEvent(new Event("cartUpdated"));
+  //     return;
+  //   }
+  //
+  //   try {
+  //     const token = localStorage.getItem("accessToken");
+  //     const res = await fetch(
+  //       `${BASE_URL}/cart-details/${cartDetailId}/decrease-quantity`,
+  //       {
+  //         method: "PUT",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //       },
+  //     );
+  //
+  //     const data = await res.json();
+  //
+  //     setCartItems((prev) =>
+  //       prev.map((item) =>
+  //         item.id === cartDetailId ? { ...item, ...data } : item,
+  //       ),
+  //     );
+  //
+  //     // SỬA TẠI ĐÂY: Thêm quantity: 1 vào body gửi lên API cập nhật giỏ hàng tổng
+  //     const resCart = await fetch(
+  //       `${BASE_URL}/carts/update/${cart.id}/decrease`,
+  //       {
+  //         method: "PUT",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //         body: JSON.stringify({ price: priceAtTime, quantity: 1 }),
+  //       },
+  //     );
+  //
+  //     if (resCart.ok) {
+  //       window.dispatchEvent(new Event("cartUpdated"));
+  //     }
+  //   } catch (err) {
+  //     console.error("Lỗi giảm số lượng: ", err);
+  //   }
+  // };
+    const handleToggleDecrease = async (
+        cartDetailId,
+        priceAtTime,
+        currentQuantity,
+        subtotal,
+    ) => {
+        // 1. CHUYỂN LOGIC KIỂM TRA RA NGOÀI ĐỂ ÁP DỤNG CHO CẢ GUEST VÀ USER
+        if (currentQuantity <= 1) {
+            if (window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?")) {
+                handleDelete(cartDetailId, currentQuantity, subtotal);
+            }
+            return;
         }
-        return;
-      }
-      const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
-      const updatedCart = guestCart.map((item) => {
-        if (item.id === cartDetailId) {
-          const newQty = item.quantity - 1;
-          return {
-            ...item,
-            quantity: newQty,
-            subtotal: newQty * item.priceAtTime,
-          };
-        }
-        return item;
-      });
-      localStorage.setItem("guestCart", JSON.stringify(updatedCart));
-      setCartItems(updatedCart);
-      window.dispatchEvent(new Event("cartUpdated"));
-      return;
-    }
-    try {
-      const token = localStorage.getItem("accessToken");
-      const res = await fetch(
-        `${BASE_URL}/cart-details/${cartDetailId}/decrease-quantity`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      const data = await res.json();
-      setCartItems((prev) =>
-        prev.map((item) =>
-          item.id === cartDetailId ? { ...item, ...data } : item,
-        ),
-      );
-      const resCart = await fetch(
-        `${BASE_URL}/carts/update/${cart.id}/decrease`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ price: priceAtTime, quantity: 1 }),
-        },
-      );
-      if (resCart.ok) window.dispatchEvent(new Event("cartUpdated"));
-    } catch (err) {
-      console.error("Lỗi giảm số lượng: ", err);
-    }
-  };
 
+        // 2. XỬ LÝ CHO GUEST
+        if (!user?.id) {
+            const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+            const updatedCart = guestCart.map((item) => {
+                if (item.id === cartDetailId) {
+                    const newQty = item.quantity - 1;
+                    return {
+                        ...item,
+                        quantity: newQty,
+                        subtotal: newQty * item.priceAtTime,
+                    };
+                }
+                return item;
+            });
+            localStorage.setItem("guestCart", JSON.stringify(updatedCart));
+            setCartItems(updatedCart);
+            window.dispatchEvent(new Event("cartUpdated"));
+            return;
+        }
+
+        // 3. XỬ LÝ CHO USER ĐÃ ĐĂNG NHẬP
+        try {
+            const token = localStorage.getItem("accessToken");
+            const res = await fetch(
+                `${BASE_URL}/cart-details/${cartDetailId}/decrease-quantity`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                },
+            );
+            const data = await res.json();
+            setCartItems((prev) =>
+                prev.map((item) =>
+                    item.id === cartDetailId ? { ...item, ...data } : item,
+                ),
+            );
+
+            const resCart = await fetch(
+                `${BASE_URL}/carts/update/${cart.id}/decrease`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ price: priceAtTime, quantity: 1 }),
+                },
+            );
+            if (resCart.ok) {
+                window.dispatchEvent(new Event("cartUpdated"));
+            }
+        } catch (err) {
+            console.error("Lỗi giảm số lượng: ", err);
+        }
+    };
   const handleDelete = async (cartDetailId, quantity, subtotal) => {
     if (!user?.id) {
       const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];

@@ -388,17 +388,90 @@ const About = () => {
             />
           </div>
 
-          <div style={{ overflow: "hidden" }}>
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              height: 480,
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#e8e4df",
+            }}
+          >
+            {/* Background Image - Phong cách Minimalist Fashion */}
             <img
-              src="https://i.postimg.cc/NffrjWDk/Frame-137.png"
-              alt="HKT Slogan"
+              src="https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?q=80&w=2070&auto=format&fit=crop"
+              alt="HKT Slogan Background"
               style={{
+                position: "absolute",
+                inset: 0,
                 width: "100%",
-                height: 480,
+                height: "100%",
                 objectFit: "cover",
+                opacity: 0.35 /* Làm mờ ảnh nền để chữ nổi bật lên */,
                 display: "block",
               }}
             />
+
+            {/* Slogan Text Overlay */}
+            <div
+              style={{
+                position: "relative",
+                zIndex: 10,
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "20px",
+                padding: "0 24px",
+              }}
+            >
+              <h3
+                style={{
+                  fontFamily: "'Georgia', serif",
+                  fontSize: "clamp(1.8rem, 4.5vw, 3.2rem)",
+                  color: "#1a1a1a",
+                  fontWeight: 400,
+                  margin: 0,
+                }}
+              >
+                Do everything you{" "}
+                <span style={{ color: "#c13535", fontStyle: "italic" }}>
+                  Love
+                </span>
+              </h3>
+
+              <div
+                style={{
+                  background: "#1a1a1a",
+                  color: "#faf9f7",
+                  padding: "10px 40px",
+                  fontFamily: "'Georgia', serif",
+                  fontSize: "clamp(1.2rem, 2.5vw, 1.8rem)",
+                  letterSpacing: "0.15em",
+                  margin: "4px 0",
+                }}
+              >
+                AND
+              </div>
+
+              <h3
+                style={{
+                  fontFamily: "'Georgia', serif",
+                  fontSize: "clamp(1.8rem, 4.5vw, 3.2rem)",
+                  color: "#1a1a1a",
+                  fontWeight: 400,
+                  margin: 0,
+                }}
+              >
+                Love everything you{" "}
+                <span style={{ color: "#2d7a4d", fontStyle: "italic" }}>
+                  Do
+                </span>
+              </h3>
+            </div>
           </div>
         </section>
       </div>
