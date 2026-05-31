@@ -95,124 +95,237 @@ const Login = () => {
 
   // Hàm gộp giỏ hàng vãng lai vào tài khoản chính thức sau khi đăng nhập
   // Hàm gộp giỏ hàng vãng lai vào tài khoản chính thức sau khi đăng nhập (Đã sửa lỗi vượt tồn kho)
-  const mergeGuestCartToUserCart = async (token) => {
-    const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
-    if (guestCart.length === 0) return;
+  // const mergeGuestCartToUserCart = async (token) => {
+  //   const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+  //   if (guestCart.length === 0) return;
+  //
+  //   try {
+  //     // 1. Gọi API lấy thông tin User và lưu vào localStorage
+  //     const resUser = await fetch(`${BASE_URL}/accounts/myinfor`, {
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //     });
+  //     const userData = await resUser.json();
+  //     const loggedInUser = userData.result;
+  //
+  //     if (!loggedInUser || !loggedInUser.id) return;
+  //     localStorage.setItem("user", JSON.stringify(loggedInUser));
+  //
+  //     // 2. Gọi API lấy thông tin Giỏ hàng tổng (Cart) của User
+  //     const resCart = await fetch(
+  //       `${BASE_URL}/carts/account/${loggedInUser.id}`,
+  //       {
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //       },
+  //     );
+  //     const cartData = await resCart.json();
+  //     const userCart = cartData.result;
+  //
+  //     if (!userCart || !userCart.id) return;
+  //
+  //     // ================= BỔ SUNG BƯỚC KIỂM TRA GIỎ HÀNG TRÊN DATABASE =================
+  //     // 3. Lấy toàn bộ danh sách sản phẩm chi tiết đang có sẵn trong giỏ hàng Database của User
+  //     const resDBDetails = await fetch(
+  //       `${BASE_URL}/cart-details/cart/${userCart.id}`,
+  //       {
+  //         headers: { Authorization: `Bearer ${token}` },
+  //       },
+  //     );
+  //     const dbCartData = resDBDetails.ok ? await resDBDetails.json() : [];
+  //     const existingDBItems = Array.isArray(dbCartData)
+  //       ? dbCartData
+  //       : dbCartData.result || [];
+  //
+  //     // 4. Lặp qua từng sản phẩm trong giỏ hàng vãng lai và gộp có kiểm soát số lượng
+  //     for (const item of guestCart) {
+  //       // Tìm xem sản phẩm cùng size này đã có sẵn trong DB của tài khoản này chưa
+  //       const existingDBItem = existingDBItems.find((dbItem) => {
+  //         const dbProdId = dbItem.productId || dbItem.product?.id;
+  //         const dbSizeName =
+  //           dbItem.sizeName ||
+  //           dbItem.sizeDetail?.sizeName ||
+  //           dbItem.sizeDetail?.size?.nameSize;
+  //         return dbProdId === item.productId && dbSizeName === item.sizeName;
+  //       });
+  //
+  //       const dbQty = existingDBItem ? Number(existingDBItem.quantity || 0) : 0;
+  //       const maxStock = Number(item.stock || 0); // Giới hạn tồn kho tối đa được lưu từ ProductDetail
+  //
+  //       // Tính toán số lượng tối đa còn có thể nhét thêm vào giỏ hàng tài khoản
+  //       const allowedToAdd = maxStock - dbQty;
+  //
+  //       // Nếu giỏ hàng trên DB đã đầy hoặc vượt quá giới hạn tồn kho thì bỏ qua không gộp sản phẩm này nữa
+  //       if (allowedToAdd <= 0) {
+  //         continue;
+  //       }
+  //
+  //       // Số lượng thực tế sẽ gửi lên API gộp (Không vượt quá khoảng trống còn lại)
+  //       const finalQtyToAdd = Math.min(
+  //         Number(item.quantity || 0),
+  //         allowedToAdd,
+  //       );
+  //
+  //       // Gửi số lượng đã được kiểm soát bảo vệ lên API
+  //       const resAdd = await fetch(`${BASE_URL}/cart-details/add-to-cart`, {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //         body: JSON.stringify({
+  //           productId: item.productId,
+  //           cartId: userCart.id,
+  //           sizeDetailId: item.sizeDetailId,
+  //           quantity: finalQtyToAdd,
+  //         }),
+  //       });
+  //
+  //       // 5. Nếu gộp chi tiết thành công, cập nhật tổng tiền/số lượng giỏ hàng tổng
+  //       if (resAdd.ok) {
+  //         const cartRequest = {
+  //           quantity: parseInt(finalQtyToAdd),
+  //           totalAmount: item.priceAtTime,
+  //         };
+  //         await fetch(`${BASE_URL}/carts/update/${userCart.id}`, {
+  //           method: "PUT",
+  //           headers: {
+  //             "Content-Type": "application/json",
+  //             Authorization: `Bearer ${token}`,
+  //           },
+  //           body: JSON.stringify(cartRequest),
+  //         });
+  //       }
+  //     }
+  //     // ===============================================================================
+  //
+  //     // Xóa sạch giỏ hàng vãng lai sau khi đồng bộ thành công
+  //     localStorage.removeItem("guestCart");
+  //
+  //     // Phát sự kiện cập nhật giao diện toàn hệ thống
+  //     window.dispatchEvent(new Event("cartUpdated"));
+  //     console.log("Merge guest cart successfully with stock limit protection!");
+  //   } catch (error) {
+  //     console.error("Lỗi gộp giỏ hàng vãng lai:", error);
+  //   }
+  // };
+    // Hàm gộp giỏ hàng vãng lai vào tài khoản chính thức sau khi đăng nhập
+    const mergeGuestCartToUserCart = async (token) => {
+        try {
+            // 1. LUÔN LUÔN Gọi API lấy thông tin User và lưu vào localStorage ngay lập tức
+            const resUser = await fetch(`${BASE_URL}/accounts/myinfor`, {
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const userData = await resUser.json();
+            const loggedInUser = userData.result;
 
-    try {
-      // 1. Gọi API lấy thông tin User và lưu vào localStorage
-      const resUser = await fetch(`${BASE_URL}/accounts/myinfor`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const userData = await resUser.json();
-      const loggedInUser = userData.result;
+            if (!loggedInUser || !loggedInUser.id) return;
+            localStorage.setItem("user", JSON.stringify(loggedInUser));
 
-      if (!loggedInUser || !loggedInUser.id) return;
-      localStorage.setItem("user", JSON.stringify(loggedInUser));
+            // 2. Kích hoạt event "login" để Header cập nhật trạng thái đã đăng nhập
+            window.dispatchEvent(new Event("login"));
 
-      // 2. Gọi API lấy thông tin Giỏ hàng tổng (Cart) của User
-      const resCart = await fetch(
-        `${BASE_URL}/carts/account/${loggedInUser.id}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      const cartData = await resCart.json();
-      const userCart = cartData.result;
+            // 3. KIỂM TRA GIỎ HÀNG VÃNG LAI: Có thì mới tiến hành gộp
+            const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+            if (guestCart.length > 0) {
+                // Gọi API lấy thông tin Giỏ hàng tổng (Cart) của User
+                const resCart = await fetch(
+                    `${BASE_URL}/carts/account/${loggedInUser.id}`,
+                    {
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
+                );
+                const cartData = await resCart.json();
+                const userCart = cartData.result;
 
-      if (!userCart || !userCart.id) return;
+                if (userCart && userCart.id) {
+                    // Lấy toàn bộ danh sách sản phẩm chi tiết đang có sẵn trong giỏ hàng Database
+                    const resDBDetails = await fetch(
+                        `${BASE_URL}/cart-details/cart/${userCart.id}`,
+                        {
+                            headers: { Authorization: `Bearer ${token}` },
+                        }
+                    );
+                    const dbCartData = resDBDetails.ok ? await resDBDetails.json() : [];
+                    const existingDBItems = Array.isArray(dbCartData)
+                        ? dbCartData
+                        : dbCartData.result || [];
 
-      // ================= BỔ SUNG BƯỚC KIỂM TRA GIỎ HÀNG TRÊN DATABASE =================
-      // 3. Lấy toàn bộ danh sách sản phẩm chi tiết đang có sẵn trong giỏ hàng Database của User
-      const resDBDetails = await fetch(
-        `${BASE_URL}/cart-details/cart/${userCart.id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      const dbCartData = resDBDetails.ok ? await resDBDetails.json() : [];
-      const existingDBItems = Array.isArray(dbCartData)
-        ? dbCartData
-        : dbCartData.result || [];
+                    // Lặp qua từng sản phẩm trong giỏ hàng vãng lai và gộp có kiểm soát số lượng
+                    for (const item of guestCart) {
+                        const existingDBItem = existingDBItems.find((dbItem) => {
+                            const dbProdId = dbItem.productId || dbItem.product?.id;
+                            const dbSizeName =
+                                dbItem.sizeName ||
+                                dbItem.sizeDetail?.sizeName ||
+                                dbItem.sizeDetail?.size?.nameSize;
+                            return (
+                                dbProdId === item.productId && dbSizeName === item.sizeName
+                            );
+                        });
 
-      // 4. Lặp qua từng sản phẩm trong giỏ hàng vãng lai và gộp có kiểm soát số lượng
-      for (const item of guestCart) {
-        // Tìm xem sản phẩm cùng size này đã có sẵn trong DB của tài khoản này chưa
-        const existingDBItem = existingDBItems.find((dbItem) => {
-          const dbProdId = dbItem.productId || dbItem.product?.id;
-          const dbSizeName =
-            dbItem.sizeName ||
-            dbItem.sizeDetail?.sizeName ||
-            dbItem.sizeDetail?.size?.nameSize;
-          return dbProdId === item.productId && dbSizeName === item.sizeName;
-        });
+                        const dbQty = existingDBItem ? Number(existingDBItem.quantity || 0) : 0;
+                        const maxStock = Number(item.stock || 0);
+                        const allowedToAdd = maxStock - dbQty;
 
-        const dbQty = existingDBItem ? Number(existingDBItem.quantity || 0) : 0;
-        const maxStock = Number(item.stock || 0); // Giới hạn tồn kho tối đa được lưu từ ProductDetail
+                        // Nếu giỏ hàng trên DB đã đầy hoặc vượt quá giới hạn tồn kho thì bỏ qua
+                        if (allowedToAdd <= 0) continue;
 
-        // Tính toán số lượng tối đa còn có thể nhét thêm vào giỏ hàng tài khoản
-        const allowedToAdd = maxStock - dbQty;
+                        const finalQtyToAdd = Math.min(Number(item.quantity || 0), allowedToAdd);
 
-        // Nếu giỏ hàng trên DB đã đầy hoặc vượt quá giới hạn tồn kho thì bỏ qua không gộp sản phẩm này nữa
-        if (allowedToAdd <= 0) {
-          continue;
+                        const resAdd = await fetch(`${BASE_URL}/cart-details/add-to-cart`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                                productId: item.productId,
+                                cartId: userCart.id,
+                                sizeDetailId: item.sizeDetailId,
+                                quantity: finalQtyToAdd,
+                            }),
+                        });
+
+                        // Cập nhật tổng tiền/số lượng giỏ hàng tổng
+                        if (resAdd.ok) {
+                            const cartRequest = {
+                                quantity: parseInt(finalQtyToAdd),
+                                totalAmount: item.priceAtTime,
+                            };
+                            await fetch(`${BASE_URL}/carts/update/${userCart.id}`, {
+                                method: "PUT",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization: `Bearer ${token}`,
+                                },
+                                body: JSON.stringify(cartRequest),
+                            });
+                        }
+                    }
+                }
+                // Xóa sạch giỏ hàng vãng lai sau khi đồng bộ
+                localStorage.removeItem("guestCart");
+            }
+
+            // 4. LUÔN LUÔN kích hoạt event "cartUpdated" ở cuối cùng
+            // Điều này đảm bảo Header (đã được bạn sửa lại) sẽ nhận diện user.id từ localStorage và fetch đúng số lượng giỏ hàng
+            window.dispatchEvent(new Event("cartUpdated"));
+
+        } catch (error) {
+            console.error("Lỗi đồng bộ dữ liệu sau đăng nhập:", error);
         }
-
-        // Số lượng thực tế sẽ gửi lên API gộp (Không vượt quá khoảng trống còn lại)
-        const finalQtyToAdd = Math.min(
-          Number(item.quantity || 0),
-          allowedToAdd,
-        );
-
-        // Gửi số lượng đã được kiểm soát bảo vệ lên API
-        const resAdd = await fetch(`${BASE_URL}/cart-details/add-to-cart`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            productId: item.productId,
-            cartId: userCart.id,
-            sizeDetailId: item.sizeDetailId,
-            quantity: finalQtyToAdd,
-          }),
-        });
-
-        // 5. Nếu gộp chi tiết thành công, cập nhật tổng tiền/số lượng giỏ hàng tổng
-        if (resAdd.ok) {
-          const cartRequest = {
-            quantity: parseInt(finalQtyToAdd),
-            totalAmount: item.priceAtTime,
-          };
-          await fetch(`${BASE_URL}/carts/update/${userCart.id}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(cartRequest),
-          });
-        }
-      }
-      // ===============================================================================
-
-      // Xóa sạch giỏ hàng vãng lai sau khi đồng bộ thành công
-      localStorage.removeItem("guestCart");
-
-      // Phát sự kiện cập nhật giao diện toàn hệ thống
-      window.dispatchEvent(new Event("cartUpdated"));
-      console.log("Merge guest cart successfully with stock limit protection!");
-    } catch (error) {
-      console.error("Lỗi gộp giỏ hàng vãng lai:", error);
-    }
-  };
+    };
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
       <div className="bg-gray-100 rounded-3xl shadow-2xl overflow-hidden max-w-4xl w-full grid md:grid-cols-2">
