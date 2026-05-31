@@ -63,23 +63,40 @@ export default function Products({ initialFilter = "ALL" }) {
   // --- EFFECT 2: Xử lý việc gọi API (chỉ chạy 1 lần khi vào trang) ---
   useEffect(() => {
     setCurrentPage(0); // reset về trang 1 khi filter thay đổi
-  }, [searchTerm, filterCategory, filterStatus]);
+  }, [searchTerm, filterCategory, filterStatus, sortOption]);
   useEffect(() => {
     loadProducts(currentPage);
-  }, [currentPage, searchTerm, filterCategory, filterStatus]);
+  }, [currentPage, searchTerm, filterCategory, filterStatus, sortOption]);
   useEffect(() => {
     loadCategories();
   }, []);
 
+  const getSortParams = (sortOption) => {
+    switch (sortOption) {
+      case "price-asc":
+        return { sortBy: "price", direction: "asc" };
+      case "price-desc":
+        return { sortBy: "price", direction: "desc" };
+      case "name-asc":
+        return { sortBy: "name", direction: "asc" };
+      case "stock-desc":
+        return { sortBy: "quantity", direction: "desc" };
+      case "newest":
+      default:
+        return { sortBy: "id", direction: "desc" };
+    }
+  };
+
   const loadProducts = async (page = 0) => {
     const token = localStorage.getItem("accessToken");
     try {
+      const { sortBy, direction } = getSortParams(sortOption);
       // Build query params
       const params = new URLSearchParams({
         page,
         size: 10,
-        sortBy: "id",
-        direction: "desc",
+        sortBy,
+        direction,
       });
       if (searchTerm) params.append("search", searchTerm);
       if (filterCategory !== "ALL") params.append("category", filterCategory);
