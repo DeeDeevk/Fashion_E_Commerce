@@ -445,14 +445,33 @@ public class ProductService {
                 .build();
     }
 
-    public Page<ProductResponse> getAllProductsPaged(Pageable pageable, String search, String category, String status) {
-        System.out.println("GET PRODUCTS PAGED FROM MYSQL");
-        String searchParam = (search != null && !search.isBlank()) ? search : null;
+    public Page<ProductResponse> getAllProductsPaged(Pageable pageable,
+                                                     String search,
+                                                     String category,
+                                                     String status) {
+        String searchParam   = (search != null && !search.isBlank()) ? search : null;
         String categoryParam = (category != null && !category.equals("ALL")) ? category : null;
-        String statusParam = (status != null && !status.equals("ALL")) ? status : null;
+        String statusParam   = (status != null && !status.equals("ALL")) ? status : null;
 
-        Page<Product> productPage = productRepository.findAllPagedWithFilter(searchParam, categoryParam, statusParam, pageable);
+        // Bước 1: lấy IDs với sort + page đúng từ DB
+        Page<Integer> idPage = productRepository.findProductIdsPaged(
+                searchParam, categoryParam, statusParam, pageable);
 
+        // Bước 2: fetch đầy đủ data theo IDs (FETCH JOIN không ảnh hưởng sort)
+        List<Integer> ids = idPage.getContent();
+        List<Product> products = ids.isEmpty()
+                ? Collections.emptyList()
+                : productRepository.findByIdsWithDetails(ids);
+
+        // Bước 3: giữ thứ tự theo idPage (vì findByIdsWithDetails không đảm bảo order)
+        Map<Integer, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+        List<Product> orderedProducts = ids.stream()
+                .map(productMap::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        // Bước 4: map sang response
         Map<Integer, Long> soldMap = new HashMap<>();
         try {
             Map<String, Object> response = restTemplate.getForObject(
@@ -465,10 +484,10 @@ public class ProductService {
             System.out.println("LỖI gọi order-service: " + e.getMessage());
         }
 
-        List<ProductResponse> content = productPage.getContent().stream()
+        List<ProductResponse> content = orderedProducts.stream()
                 .map(p -> convertToProductResponse(p, soldMap.getOrDefault(p.getId(), 0L)))
                 .collect(Collectors.toList());
 
-        return new PageImpl<>(content, pageable, productPage.getTotalElements());
+        return new PageImpl<>(content, pageable, idPage.getTotalElements());
     }
 }
