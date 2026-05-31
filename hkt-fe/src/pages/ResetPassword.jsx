@@ -1,149 +1,268 @@
-import React from "react";
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+// import React from "react";
+// import { useState, useEffect } from "react";
+// import { useNavigate } from "react-router";
+//
+// const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+//
+// const ResetPassword = () => {
+//   const navigate = useNavigate();
+//   const [otp, setOtp] = useState("");
+//   const [newPassword, setNewPassword] = useState("");
+//   const [loading, setLoading] = useState(false);
+//
+//   useEffect(() => {
+//     const token = sessionStorage.getItem("resetToken");
+//     const otp = sessionStorage.getItem("otp");
+//
+//     if (!token) {
+//       alert("Please initiate the forgot password request first!");
+//       navigate("/forget_password");
+//     }
+//   }, [navigate]);
+//
+//   const handleResetSubmit = async () => {
+//     if (!otp || !newPassword) {
+//       alert("Please enter both the OTP and the new password.");
+//       return;
+//     }
+//     // Retrieve token from sessionStorage to prepare for sending
+//     const token = sessionStorage.getItem("resetToken");
+//
+//     setLoading(true);
+//     try {
+//       const response = await fetch(`${BASE_URL}/auth/reset-password`, {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({
+//           token: token, // Token retrieved from Session
+//           otp: otp, // OTP entered by user
+//           newPassword: newPassword, // New password entered by user
+//         }),
+//       });
+//
+//       const data = await response.json();
+//
+//       console.log(response.ok);
+//       console.log(data.code);
+//
+//       if (response.ok && data.code === 0) {
+//         alert("Password changed successfully! Please log in again.");
+//
+//         // --- IMPORTANT: CLEAN UP SESSION ---
+//         sessionStorage.removeItem("resetToken");
+//         sessionStorage.removeItem("otp");
+//
+//         navigate("/login");
+//       } else {
+//         alert(data.result || "Incorrect or expired OTP!");
+//       }
+//     } catch (error) {
+//       console.error("Error:", error);
+//       alert("Server connection error!");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+//
+//   return (
+//     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+//       <div className="bg-gray-100 rounded-3xl shadow-2xl overflow-hidden max-w-4xl w-full grid md:grid-cols-2">
+//         {/* Left side - Form */}
+//         <div className="p-8 md:p-12">
+//           <h2 className="font-bold text-4xl mb-3">Reset Password</h2>
+//
+//           <div className="grid gap-6">
+//             {/* Input OTP */}
+//             <div>
+//               <div className="flex items-center gap-2 mb-2">
+//                 <label className="text-gray-700 font-medium">
+//                   Mã OTP (6 số):
+//                 </label>
+//               </div>
+//               <input
+//                 type="text"
+//                 value={otp}
+//                 onChange={(e) => setOtp(e.target.value)}
+//                 className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:border-red-400 transition tracking-widest"
+//                 placeholder="XXXXXX"
+//                 maxLength={6}
+//               />
+//             </div>
+//
+//             {/* Input New Password */}
+//             <div>
+//               <div className="flex items-center gap-2 mb-2">
+//                 <label className="text-gray-700 font-medium">
+//                   Mật khẩu mới:
+//                 </label>
+//               </div>
+//               <input
+//                 type="password"
+//                 value={newPassword}
+//                 onChange={(e) => setNewPassword(e.target.value)}
+//                 className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:border-red-400 transition"
+//                 placeholder="Nhập mật khẩu mới..."
+//               />
+//             </div>
+//
+//             <button
+//               onClick={handleResetSubmit}
+//               disabled={loading}
+//               className={`w-full py-4 rounded-lg text-white font-bold text-lg transition mt-4 ${
+//                 loading
+//                   ? "bg-gray-500 cursor-not-allowed"
+//                   : "bg-red-500 hover:bg-red-600"
+//               }`}
+//             >
+//               {loading ? "ĐANG XỬ LÝ..." : "XÁC NHẬN ĐỔI MẬT KHẨU"}
+//             </button>
+//
+//             <button
+//               className="text-sm text-gray-500 hover:underline text-center mt-2"
+//               onClick={() => {
+//                 // Nếu muốn quay lại nhập lại email, xóa session cũ đi
+//                 sessionStorage.removeItem("resetToken");
+//                 sessionStorage.removeItem("resetEmail");
+//                 navigate("/forgot_password");
+//               }}
+//             >
+//               Quay lại nhập Email khác
+//             </button>
+//           </div>
+//         </div>
+//
+//         {/* Right side - Image */}
+//         <div className="hidden md:flex items-center justify-center bg-gradient-to-br from-red-400 to-red-500 p-12">
+//           <div className="relative">
+//             <div className="absolute inset-0 bg-red-300 rounded-full blur-3xl opacity-50"></div>
+//             <img
+//               src="https://i.postimg.cc/J0TgG6NZ/Thiet-ke-chua-co-ten-(6).png"
+//               alt="Profile"
+//               className="relative rounded-full w-80 h-80 object-cover border-8 border-white shadow-2xl"
+//             />
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+// export default ResetPassword;
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const ResetPassword = () => {
-  const navigate = useNavigate();
-  const [otp, setOtp] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const [otp, setOtp] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const token = sessionStorage.getItem("resetToken");
-    const otp = sessionStorage.getItem("otp");
+    useEffect(() => {
+        const token = sessionStorage.getItem("resetToken");
+        if (!token) {
+            toast.warning("Please initiate the forgot password request first!");
+            navigate("/forgot_password");
+        }
+    }, [navigate]);
 
-    if (!token) {
-      alert("Please initiate the forgot password request first!");
-      navigate("/forget_password");
-    }
-  }, [navigate]);
+    const handleResetSubmit = async () => {
+        if (!otp || !newPassword) {
+            toast.warning("Please enter both the OTP and the new password.");
+            return;
+        }
+        const token = sessionStorage.getItem("resetToken");
+        setLoading(true);
+        try {
+            const response = await fetch(`${BASE_URL}/auth/reset-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token, otp, newPassword }),
+            });
+            const data = await response.json();
 
-  const handleResetSubmit = async () => {
-    if (!otp || !newPassword) {
-      alert("Please enter both the OTP and the new password.");
-      return;
-    }
-    // Retrieve token from sessionStorage to prepare for sending
-    const token = sessionStorage.getItem("resetToken");
-
-    setLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: token, // Token retrieved from Session
-          otp: otp, // OTP entered by user
-          newPassword: newPassword, // New password entered by user
-        }),
-      });
-
-      const data = await response.json();
-
-      console.log(response.ok);
-      console.log(data.code);
-
-      if (response.ok && data.code === 0) {
-        alert("Password changed successfully! Please log in again.");
-
-        // --- IMPORTANT: CLEAN UP SESSION ---
-        sessionStorage.removeItem("resetToken");
-        sessionStorage.removeItem("otp");
-
-        navigate("/login");
-      } else {
-        alert(data.result || "Incorrect or expired OTP!");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Server connection error!");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-gray-100 rounded-3xl shadow-2xl overflow-hidden max-w-4xl w-full grid md:grid-cols-2">
-        {/* Left side - Form */}
-        <div className="p-8 md:p-12">
-          <h2 className="font-bold text-4xl mb-3">Reset Password</h2>
-
-          <div className="grid gap-6">
-            {/* Input OTP */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <label className="text-gray-700 font-medium">
-                  Mã OTP (6 số):
-                </label>
-              </div>
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:border-red-400 transition tracking-widest"
-                placeholder="XXXXXX"
-                maxLength={6}
-              />
-            </div>
-
-            {/* Input New Password */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <label className="text-gray-700 font-medium">
-                  Mật khẩu mới:
-                </label>
-              </div>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:border-red-400 transition"
-                placeholder="Nhập mật khẩu mới..."
-              />
-            </div>
-
-            <button
-              onClick={handleResetSubmit}
-              disabled={loading}
-              className={`w-full py-4 rounded-lg text-white font-bold text-lg transition mt-4 ${
-                loading
-                  ? "bg-gray-500 cursor-not-allowed"
-                  : "bg-red-500 hover:bg-red-600"
-              }`}
-            >
-              {loading ? "ĐANG XỬ LÝ..." : "XÁC NHẬN ĐỔI MẬT KHẨU"}
-            </button>
-
-            <button
-              className="text-sm text-gray-500 hover:underline text-center mt-2"
-              onClick={() => {
-                // Nếu muốn quay lại nhập lại email, xóa session cũ đi
+            if (response.ok && data.code === 0) {
+                toast.success("Password changed successfully! Please log in again.");
                 sessionStorage.removeItem("resetToken");
-                sessionStorage.removeItem("resetEmail");
-                navigate("/forgot_password");
-              }}
-            >
-              Quay lại nhập Email khác
-            </button>
-          </div>
-        </div>
+                sessionStorage.removeItem("otp");
+                navigate("/login");
+            } else {
+                toast.error(data.result || "Incorrect or expired OTP!");
+            }
+        } catch (error) {
+            toast.error("Server connection error!");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        {/* Right side - Image */}
-        <div className="hidden md:flex items-center justify-center bg-gradient-to-br from-red-400 to-red-500 p-12">
-          <div className="relative">
-            <div className="absolute inset-0 bg-red-300 rounded-full blur-3xl opacity-50"></div>
-            <img
-              src="https://i.postimg.cc/J0TgG6NZ/Thiet-ke-chua-co-ten-(6).png"
-              alt="Profile"
-              className="relative rounded-full w-80 h-80 object-cover border-8 border-white shadow-2xl"
-            />
-          </div>
+    return (
+        <div className="min-h-screen bg-[#faf9f7] flex items-center justify-center p-4 lg:p-8 font-sans">
+            <div className="max-w-5xl w-full flex flex-col md:flex-row bg-white border border-[#e8e4df] shadow-2xl">
+
+                {/* L E F T   S I D E */}
+                <div className="md:w-1/2 relative hidden md:block border-r border-[#e8e4df]">
+                    <img
+                        src="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2074&auto=format&fit=crop"
+                        alt="Fashion Editorial"
+                        className="absolute inset-0 w-full h-full object-cover grayscale-[20%]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-12">
+                        <h2 className="text-white font-serif text-4xl mb-2">New Start.</h2>
+                        <p className="text-white/80 text-sm font-light tracking-widest uppercase">Set new password</p>
+                    </div>
+                </div>
+
+                {/* R I G H T   S I D E */}
+                <div className="md:w-1/2 p-10 lg:p-16 flex flex-col justify-center bg-[#faf9f7]">
+                    <div className="mb-10 text-center md:text-left">
+                        <p className="text-[#888] text-[0.65rem] tracking-[0.25em] uppercase mb-3">Final Step</p>
+                        <h1 className="font-serif text-4xl text-[#1a1a1a] mb-4">Reset Password</h1>
+                        <p className="text-[#888] text-sm leading-relaxed">
+                            Please enter the 6-digit OTP sent to your email and create a new secure password.
+                        </p>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-[#888] text-[0.65rem] tracking-[0.15em] uppercase mb-2">OTP Code</label>
+                            <input
+                                type="text"
+                                value={otp}
+                                onChange={(e) => setOtp(e.target.value)}
+                                maxLength={6}
+                                className="w-full bg-transparent border-b border-[#e8e4df] py-3 text-lg tracking-[0.5em] font-bold text-center text-[#1a1a1a] focus:outline-none focus:border-[#1a1a1a] transition-colors"
+                                placeholder="------"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-[#888] text-[0.65rem] tracking-[0.15em] uppercase mb-2">New Password</label>
+                            <input
+                                type="password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="w-full bg-transparent border-b border-[#e8e4df] py-3 text-sm text-[#1a1a1a] focus:outline-none focus:border-[#1a1a1a] transition-colors"
+                                placeholder="Enter new password"
+                            />
+                        </div>
+
+                        <div className="pt-6 space-y-4">
+                            <button onClick={handleResetSubmit} disabled={loading} className="w-full bg-[#1a1a1a] text-[#faf9f7] py-4 text-[0.72rem] uppercase tracking-[0.18em] hover:bg-[#333] transition-colors flex items-center justify-center gap-2">
+                                {loading ? "Processing..." : "Confirm Password"} <ArrowRight size={14} />
+                            </button>
+
+                            <button onClick={() => { sessionStorage.clear(); navigate("/forgot_password"); }} className="w-full bg-transparent text-[#888] border-none py-3 text-[0.7rem] uppercase tracking-[0.15em] hover:text-[#1a1a1a] transition-colors text-center">
+                                Use different email
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
+
 export default ResetPassword;
