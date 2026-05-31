@@ -159,6 +159,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       EUREKA_INSTANCE_IP_ADDRESS: ${USER_SERVICE}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
     networks:
       - hkt-network
     restart: always
