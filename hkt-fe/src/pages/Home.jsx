@@ -73,9 +73,9 @@ const Home = () => {
     setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length);
 
   const banners = [
-    "https://legiakhanhxd.s3.ap-southeast-1.amazonaws.com/z7796781278873_ae66b2ea4a9ae14eb7518f26dad1c77b.jpg",
-    "https://legiakhanhxd.s3.ap-southeast-1.amazonaws.com/z7796798493473_a75d40aa9ceae620dd196bd8684f6ba4.jpg",
-    "https://legiakhanhxd.s3.ap-southeast-1.amazonaws.com/z7796817782034_3b2eea6ef8d3144343f04bfc186e8d32.jpg",
+    "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=2071&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2074&auto=format&fit=crop",
   ];
 
   const getBestSellers = () => {

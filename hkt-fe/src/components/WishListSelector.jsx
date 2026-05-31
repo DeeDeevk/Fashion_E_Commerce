@@ -54,7 +54,6 @@ export default function WishlistSelectorModal({
   const [loading, setLoading] = React.useState(true);
   const [savingIds, setSavingIds] = React.useState(new Set());
 
-  // Form tạo wishlist mới
   const [showCreateForm, setShowCreateForm] = React.useState(false);
   const [newName, setNewName] = React.useState("");
   const [newDesc, setNewDesc] = React.useState("");
@@ -99,7 +98,6 @@ export default function WishlistSelectorModal({
     wishlistName,
   ) => {
     if (savingIds.has(wishlistId)) return;
-
     setSavingIds((prev) => new Set(prev).add(wishlistId));
 
     try {
@@ -116,7 +114,6 @@ export default function WishlistSelectorModal({
           wl.id === wishlistId ? { ...wl, hasProduct: !currentHasProduct } : wl,
         ),
       );
-
       onSuccess?.();
     } catch (err) {
       toast.error(err.message || "Có lỗi xảy ra");
@@ -150,8 +147,6 @@ export default function WishlistSelectorModal({
       setNewName("");
       setNewDesc("");
       setShowCreateForm(false);
-
-      // Cập nhật trạng thái tim ở ProductCard
       onSuccess?.();
     } catch (err) {
       toast.error("Failed to create wishlist: " + err.message);
@@ -161,91 +156,337 @@ export default function WishlistSelectorModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        fontFamily: "sans-serif",
+      }}
+    >
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(26,26,26,0.45)",
+        }}
+      />
+
+      {/* Modal */}
+      <div
+        style={{
+          position: "relative",
+          background: "#faf9f7",
+          width: "100%",
+          maxWidth: 420,
+          maxHeight: "80vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.14)",
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b">
-          <h3 className="text-lg font-semibold">Save to wishlist</h3>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "20px 24px",
+            borderBottom: "1px solid #e8e4df",
+          }}
+        >
+          <div>
+            <p
+              style={{
+                fontSize: "0.62rem",
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "#aaa",
+                margin: "0 0 4px",
+              }}
+            >
+              Save to
+            </p>
+            <h3
+              style={{
+                fontFamily: "'Georgia', serif",
+                fontSize: "1.1rem",
+                fontWeight: 400,
+                margin: 0,
+                color: "#1a1a1a",
+              }}
+            >
+              Wishlist
+            </h3>
+          </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full transition"
+            style={{
+              width: 32,
+              height: 32,
+              border: "1px solid #e8e4df",
+              background: "transparent",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: "#888",
+              borderRadius: 0,
+              transition: "border-color 0.2s, color 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "#1a1a1a";
+              e.currentTarget.style.color = "#1a1a1a";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "#e8e4df";
+              e.currentTarget.style.color = "#888";
+            }}
           >
-            <X size={20} />
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
 
-        {/* Nội dung cuộn */}
-        <div className="overflow-y-auto flex-1">
+        {/* Body */}
+        <div style={{ overflowY: "auto", flex: 1 }}>
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
+            <div style={{ padding: "48px 24px", textAlign: "center" }}>
+              <div
+                style={{
+                  display: "inline-block",
+                  width: 22,
+                  height: 22,
+                  border: "1px solid #1a1a1a",
+                  borderTop: "1px solid transparent",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                }}
+              />
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
           ) : showCreateForm ? (
-            <div className="p-5 space-y-4">
+            <div style={{ padding: "24px" }}>
+              <p
+                style={{
+                  fontSize: "0.65rem",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "#aaa",
+                  margin: "0 0 16px",
+                }}
+              >
+                New Wishlist
+              </p>
+
               <input
                 type="text"
-                placeholder="Your wishlist name..."
+                placeholder="Wishlist name..."
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                 autoFocus
+                style={{
+                  width: "100%",
+                  padding: "10px 0",
+                  border: "none",
+                  borderBottom: "1px solid #1a1a1a",
+                  background: "transparent",
+                  fontSize: "0.88rem",
+                  color: "#1a1a1a",
+                  outline: "none",
+                  fontFamily: "sans-serif",
+                  marginBottom: 20,
+                  boxSizing: "border-box",
+                }}
               />
+
               <textarea
                 placeholder="Description (optional)"
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-black"
+                style={{
+                  width: "100%",
+                  padding: "10px 0",
+                  border: "none",
+                  borderBottom: "1px solid #e8e4df",
+                  background: "transparent",
+                  fontSize: "0.82rem",
+                  color: "#888",
+                  outline: "none",
+                  fontFamily: "sans-serif",
+                  resize: "none",
+                  marginBottom: 28,
+                  boxSizing: "border-box",
+                }}
               />
-              <div className="flex gap-3">
+
+              <div style={{ display: "flex", gap: 10 }}>
                 <button
                   onClick={() => setShowCreateForm(false)}
-                  className="flex-1 py-3 border border-red-500 text-red-500 rounded-lg hover:bg-red-50 transition font-medium"
+                  style={{
+                    flex: 1,
+                    padding: "11px 0",
+                    border: "1px solid #e8e4df",
+                    background: "transparent",
+                    color: "#888",
+                    fontSize: "0.68rem",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    fontFamily: "sans-serif",
+                    transition: "border-color 0.2s, color 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "#1a1a1a";
+                    e.currentTarget.style.color = "#1a1a1a";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "#e8e4df";
+                    e.currentTarget.style.color = "#888";
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateWishlist}
-                  className="flex-1 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition font-medium"
+                  style={{
+                    flex: 1,
+                    padding: "11px 0",
+                    border: "1px solid #1a1a1a",
+                    background: "#1a1a1a",
+                    color: "#faf9f7",
+                    fontSize: "0.68rem",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    fontFamily: "sans-serif",
+                    transition: "background 0.2s, color 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#1a1a1a";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#1a1a1a";
+                    e.currentTarget.style.color = "#faf9f7";
+                  }}
                 >
-                  Add
+                  Create
                 </button>
               </div>
             </div>
           ) : wishlists.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <p>You dont have any wishlist</p>
+            <div
+              style={{
+                padding: "48px 24px",
+                textAlign: "center",
+                color: "#aaa",
+                fontSize: "0.82rem",
+                letterSpacing: "0.04em",
+              }}
+            >
+              You don't have any wishlist yet.
             </div>
           ) : (
-            <div className="divide-y">
-              {wishlists.map((wl) => (
+            <div>
+              {wishlists.map((wl, idx) => (
                 <button
                   key={wl.id}
                   onClick={() =>
                     toggleProductInWishlist(wl.id, wl.hasProduct, wl.name)
                   }
                   disabled={savingIds.has(wl.id)}
-                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition disabled:opacity-70 text-left"
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "16px 24px",
+                    background: "transparent",
+                    border: "none",
+                    borderBottom:
+                      idx < wishlists.length - 1 ? "1px solid #e8e4df" : "none",
+                    cursor: savingIds.has(wl.id) ? "default" : "pointer",
+                    textAlign: "left",
+                    opacity: savingIds.has(wl.id) ? 0.6 : 1,
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!savingIds.has(wl.id))
+                      e.currentTarget.style.background = "#f0ece6";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
                 >
-                  <div className="flex-1">
-                    <div className="font-medium">{wl.name}</div>
+                  <div style={{ flex: 1 }}>
+                    <p
+                      style={{
+                        fontFamily: "'Georgia', serif",
+                        fontSize: "0.9rem",
+                        fontWeight: 400,
+                        color: "#1a1a1a",
+                        margin: "0 0 3px",
+                      }}
+                    >
+                      {wl.name}
+                    </p>
                     {wl.description && (
-                      <div className="text-xs text-gray-500 mt-1">
+                      <p
+                        style={{
+                          fontFamily: "sans-serif",
+                          fontSize: "0.72rem",
+                          color: "#aaa",
+                          margin: "0 0 2px",
+                          letterSpacing: "0.02em",
+                        }}
+                      >
                         {wl.description}
-                      </div>
+                      </p>
                     )}
-                    <div className="text-xs text-gray-400 mt-1">
-                      {wl.itemCount || 0} product
-                    </div>
+                    <p
+                      style={{
+                        fontFamily: "sans-serif",
+                        fontSize: "0.68rem",
+                        color: "#bbb",
+                        letterSpacing: "0.06em",
+                        margin: 0,
+                      }}
+                    >
+                      {wl.itemCount || 0} item
+                      {(wl.itemCount || 0) !== 1 ? "s" : ""}
+                    </p>
                   </div>
+
                   {savingIds.has(wl.id) ? (
-                    <div className="w-6 h-6 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        border: "1px solid #1a1a1a",
+                        borderTop: "1px solid transparent",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                        flexShrink: 0,
+                      }}
+                    />
                   ) : (
                     <Heart
-                      size={24}
-                      fill={wl.hasProduct ? "#ef4444" : "none"}
-                      className={
-                        wl.hasProduct ? "text-red-500" : "text-gray-400"
-                      }
+                      size={18}
+                      strokeWidth={1.5}
+                      fill={wl.hasProduct ? "#1a1a1a" : "none"}
+                      style={{
+                        color: wl.hasProduct ? "#1a1a1a" : "#ccc",
+                        flexShrink: 0,
+                        transition: "color 0.2s",
+                      }}
                     />
                   )}
                 </button>
@@ -254,14 +495,44 @@ export default function WishlistSelectorModal({
           )}
         </div>
 
-        {/* Nút tạo mới */}
+        {/* Footer — Create new */}
         {!showCreateForm && (
-          <div className="p-4 border-t bg-gray-50">
+          <div
+            style={{
+              padding: "16px 24px",
+              borderTop: "1px solid #e8e4df",
+              background: "#faf9f7",
+            }}
+          >
             <button
               onClick={() => setShowCreateForm(true)}
-              className="w-full py-3 flex items-center justify-center gap-2 text-black font-medium hover:bg-gray-200 rounded-lg transition"
+              style={{
+                width: "100%",
+                padding: "11px 0",
+                border: "1px solid #e8e4df",
+                background: "transparent",
+                color: "#888",
+                fontSize: "0.68rem",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                fontFamily: "sans-serif",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                transition: "border-color 0.2s, color 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#1a1a1a";
+                e.currentTarget.style.color = "#1a1a1a";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#e8e4df";
+                e.currentTarget.style.color = "#888";
+              }}
             >
-              <Plus size={20} />
+              <Plus size={14} strokeWidth={1.5} />
               Create new wishlist
             </button>
           </div>

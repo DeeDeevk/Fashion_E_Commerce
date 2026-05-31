@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { FaTrash } from "react-icons/fa";
 import { toast } from "sonner";
+import { ArrowRight, ArrowLeft } from "lucide-react";
 import ChatBot from "../components/ChatBot";
 import Contact from "../components/Contact";
 
@@ -30,10 +31,8 @@ const calculateSummary = (items) => {
   const minFreeShipping = 1000000;
   const standardShippingFee = 0;
   const discount = 0;
-
   const shippingFee = subtotal >= minFreeShipping ? 0 : standardShippingFee;
   const shippingText = subtotal >= minFreeShipping ? "Free" : "Not Yet";
-
   const total = subtotal - discount + shippingFee;
 
   return {
@@ -59,7 +58,6 @@ const Cart = () => {
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem("accessToken");
-
       const res = await fetch(`${BASE_URL}/accounts/myinfor`, {
         headers: {
           "Content-Type": "application/json",
@@ -67,7 +65,6 @@ const Cart = () => {
         },
       });
       const data = await res.json();
-      console.log("Tài khoản đang login: ", data.result);
       setUser(data.result);
     } catch (error) {
       console.error("Lỗi fetch user", error);
@@ -88,27 +85,21 @@ const Cart = () => {
         },
       });
       const data = await res.json();
-      console.log("Cart của user: ", data.result);
       setCart(data.result);
     } catch (error) {
       console.error("Lỗi fetch cart: ", error);
     }
   };
 
-  // useEffect(() => {
-  //     //     if (user?.id) {
-  //     //         fetchCart();
-  //     //     }
-  //     // }, [user]);
   useEffect(() => {
     if (user?.id) {
       fetchCart();
     } else {
-      // NẾU LÀ GUEST: Đọc thẳng từ LocalStorage
       const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
       setCartItems(guestCart);
     }
   }, [user]);
+
   const hanldeFetchCart = async () => {
     try {
       const token = localStorage.getItem("accessToken");
@@ -119,11 +110,6 @@ const Cart = () => {
         },
       });
       const data = await res.json();
-      const newCartItems = [];
-      for (const cd of data) {
-        console.log(cd);
-      }
-      console.log("Cart API: ", data);
       const items = Array.isArray(data)
         ? data
         : data.result || data.cartDetails || [];
@@ -137,15 +123,11 @@ const Cart = () => {
     const updatedItems = cartItems.map((item) =>
       item.id === cartDetailId ? { ...item, selected: !item.selected } : item,
     );
-
     setCartItems(updatedItems);
-
-    // Dành cho Guest
     if (!user?.id) {
       localStorage.setItem("guestCart", JSON.stringify(updatedItems));
       return;
     }
-
     try {
       const token = localStorage.getItem("accessToken");
       await fetch(`${BASE_URL}/cart-details/${cartDetailId}/select`, {
@@ -172,65 +154,18 @@ const Cart = () => {
     console.log("Select state đã cập nhật:", select);
   }, [select]);
 
-  // const handleToggleIncrease = async (cartDetailId, priceAtTime) => {
-  //     try {
-  //         const token = localStorage.getItem("accessToken");
-  //         const res = await fetch(
-  //             `${BASE_URL}/cart-details/${cartDetailId}/increase-quantity`,
-  //             {
-  //                 method: "PUT",
-  //                 headers: {
-  //                     "Content-Type": "application/json",
-  //                     Authorization: `Bearer ${token}`,
-  //                 },
-  //             }
-  //         );
-  //
-  //         const data = await res.json();
-  //
-  //         setCartItems((prev) =>
-  //             prev.map((item) =>
-  //                 item.id === cartDetailId ? { ...item, ...data } : item
-  //             )
-  //         );
-  //         const resCart = await fetch(
-  //             `${BASE_URL}/carts/update/${cart.id}/increase`,
-  //             {
-  //                 method: "PUT",
-  //                 headers: {
-  //                     "Content-Type": "application/json",
-  //                     Authorization: `Bearer ${token}`,
-  //                 },
-  //                 body: JSON.stringify({ price: priceAtTime }),
-  //             }
-  //         );
-  //
-  //         const dataCart = await resCart.json();
-  //         if (resCart.ok) {
-  //             window.dispatchEvent(new Event("cartUpdated"));
-  //         }
-  //         console.log("Update quantity response: ", data);
-  //     } catch (err) {
-  //         console.error("Lỗi update select: ", err);
-  //     }
-  // };
-
   const handleToggleIncrease = async (
     cartDetailId,
     priceAtTime,
     currentQuantity,
     maxStock,
   ) => {
-    // ĐƯA LÊN ĐẦU: Chặn tồn kho cho CẢ Guest VÀ User
     const qty = Number(currentQuantity || 0);
     const stock = Number(maxStock || 0);
-
     if (maxStock !== undefined && maxStock !== null && qty >= stock) {
       toast.error(`Sản phẩm này chỉ còn tối đa ${stock} sản phẩm trong kho!`);
       return;
     }
-
-    // XỬ LÝ NẾU LÀ GUEST
     if (!user?.id) {
       const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
       const updatedCart = guestCart.map((item) => {
@@ -249,8 +184,6 @@ const Cart = () => {
       window.dispatchEvent(new Event("cartUpdated"));
       return;
     }
-
-    // XỬ LÝ NẾU LÀ USER ĐÃ ĐĂNG NHẬP
     try {
       const token = localStorage.getItem("accessToken");
       const res = await fetch(
@@ -263,14 +196,12 @@ const Cart = () => {
           },
         },
       );
-
       const data = await res.json();
       setCartItems((prev) =>
         prev.map((item) =>
           item.id === cartDetailId ? { ...item, ...data } : item,
         ),
       );
-
       const resCart = await fetch(
         `${BASE_URL}/carts/update/${cart.id}/increase`,
         {
@@ -282,74 +213,11 @@ const Cart = () => {
           body: JSON.stringify({ price: priceAtTime, quantity: 1 }),
         },
       );
-
-      if (resCart.ok) {
-        window.dispatchEvent(new Event("cartUpdated"));
-      }
+      if (resCart.ok) window.dispatchEvent(new Event("cartUpdated"));
     } catch (err) {
       console.error("Lỗi tăng số lượng: ", err);
     }
-  }; // const handleToggleDecrease = async (cartDetailId, priceAtTime) => {
-  //     try {
-  //         const token = localStorage.getItem("accessToken");
-  //         const res = await fetch(
-  //             `${BASE_URL}/cart-details/${cartDetailId}/decrease-quantity`,
-  //             {
-  //                 method: "PUT",
-  //                 headers: {
-  //                     "Content-Type": "application/json",
-  //                     Authorization: `Bearer ${token}`,
-  //                 },
-  //             }
-  //         );
-  //
-  //         const data = await res.json();
-  //         if (!data || data.quantity === 0) {
-  //             setCartItems((prev) => prev.filter((i) => i.id !== cartDetailId));
-  //             const resCart = await fetch(
-  //                 `${BASE_URL}/carts/update/${cart.id}/decrease`,
-  //                 {
-  //                     method: "PUT",
-  //                     headers: {
-  //                         "Content-Type": "application/json",
-  //                         Authorization: `Bearer ${token}`,
-  //                     },
-  //                     body: JSON.stringify({ price: priceAtTime }),
-  //                 }
-  //             );
-  //
-  //             const dataCart = await resCart.json();
-  //             if (resCart.ok) {
-  //                 window.dispatchEvent(new Event("cartUpdated"));
-  //             }
-  //             return;
-  //         }
-  //         setCartItems((prev) =>
-  //             prev.map((item) =>
-  //                 item.id === cartDetailId ? { ...item, ...data } : item
-  //             )
-  //         );
-  //         const resCart = await fetch(
-  //             `${BASE_URL}/carts/update/${cart.id}/decrease`,
-  //             {
-  //                 method: "PUT",
-  //                 headers: {
-  //                     "Content-Type": "application/json",
-  //                     Authorization: `Bearer ${token}`,
-  //                 },
-  //                 body: JSON.stringify({ price: priceAtTime }),
-  //             }
-  //         );
-  //
-  //         const dataCart = await resCart.json();
-  //         if (resCart.ok) {
-  //             window.dispatchEvent(new Event("cartUpdated"));
-  //         }
-  //         console.log("Update quantity response: ", data);
-  //     } catch (err) {
-  //         console.error("Lỗi update select: ", err);
-  //     }
-  // };
+  };
 
   // Thêm currentQuantity và subtotal vào tham số truyền vào
   // const handleToggleDecrease = async (cartDetailId, priceAtTime, currentQuantity, subtotal) => {
@@ -551,7 +419,6 @@ const Cart = () => {
         }
     };
   const handleDelete = async (cartDetailId, quantity, subtotal) => {
-    // XỬ LÝ NẾU LÀ GUEST
     if (!user?.id) {
       const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
       const updatedCart = guestCart.filter((item) => item.id !== cartDetailId);
@@ -572,7 +439,6 @@ const Cart = () => {
           },
         },
       );
-
       if (res.ok) {
         setCartItems(cartItems.filter((item) => item.id !== cartDetailId));
         const resCart = await fetch(
@@ -586,11 +452,7 @@ const Cart = () => {
             body: JSON.stringify({ price: subtotal, quantity: quantity }),
           },
         );
-
-        const dataCart = await resCart.json();
-        if (resCart.ok) {
-          window.dispatchEvent(new Event("cartUpdated"));
-        }
+        if (resCart.ok) window.dispatchEvent(new Event("cartUpdated"));
       } else {
         console.error("Delete failed:", res.statusText);
       }
@@ -600,41 +462,8 @@ const Cart = () => {
   };
 
   const [editingItemData, setEditingItemData] = useState({});
-  // const handleQuantityChange = (cartDetailId, value, maxStock) => {
-  //     // Cho phép ô nhập trống tạm thời khi người dùng đang xóa để gõ số mới
-  //     if (value === "") {
-  //         setCartItems((prev) =>
-  //             prev.map((item) => (item.id === cartDetailId ? { ...item, quantity: "" } : item))
-  //         );
-  //         return;
-  //     }
-  //
-  //     let parsedValue = parseInt(value, 10);
-  //     if (isNaN(parsedValue) || parsedValue < 1) {
-  //         parsedValue = 1;
-  //     }
-  //
-  //     // Kiểm tra với số lượng tồn kho (Giả sử thuộc tính trong item backend trả về là item.sizeStock)
-  //     // Bạn hãy đổi 'sizeStock' thành tên thuộc tính chứa số lượng tồn kho của bạn
-  //     // const stock = maxStock || 99; // fallback nếu chưa có dữ liệu stock
-  //     const stock = maxStock ;
-  //
-  //     if (parsedValue > stock) {
-  //         toast.error(`Sản phẩm này chỉ còn tối đa ${stock} sản phẩm trong kho!`);
-  //         parsedValue = stock;
-  //     }
-  //
-  //     setCartItems((prev) =>
-  //         prev.map((item) =>
-  //             item.id === cartDetailId
-  //                 ? { ...item, quantity: parsedValue, subtotal: parsedValue * item.priceAtTime }
-  //                 : item
-  //         )
-  //     );
-  // };
-  // Hàm xử lý khi người dùng đang gõ số lượng từ bàn phím
+
   const handleQuantityChange = (cartDetailId, value, maxStock) => {
-    // Cho phép ô nhập trống tạm thời khi người dùng xóa sạch để gõ số mới
     if (value === "") {
       setCartItems((prev) =>
         prev.map((item) =>
@@ -643,28 +472,15 @@ const Cart = () => {
       );
       return;
     }
-
     let parsedValue = parseInt(value, 10);
-    if (isNaN(parsedValue)) {
-      parsedValue = 0; // Tạm thời cho phép bằng 0 khi đang gõ
-    }
-
-    // THAY ĐỔI TẠI ĐÂY: Sử dụng biến maxStock động lấy từ kho thực tế của sản phẩm
+    if (isNaN(parsedValue)) parsedValue = 0;
     const stockAvailable = maxStock || 0;
     if (parsedValue > stockAvailable) {
       toast.error(
         `Sản phẩm này chỉ còn tối đa ${stockAvailable} sản phẩm trong kho!`,
       );
-      parsedValue = stockAvailable; // Tự động đưa về số lượng tối đa trong kho
+      parsedValue = stockAvailable;
     }
-
-    // // Kiểm tra giới hạn tồn kho (Ví dụ trường tồn kho là item.stock hoặc mặc định là 99)
-    // const stock = maxStock || 99;
-    // if (parsedValue > stock) {
-    //     toast.error(`Sản phẩm này chỉ còn tối đa ${stock} sản phẩm trong kho!`);
-    //     parsedValue = stock;
-    // }
-
     setCartItems((prev) =>
       prev.map((item) =>
         item.id === cartDetailId
@@ -677,55 +493,9 @@ const Cart = () => {
       ),
     );
   };
-  // const handleBlurQuantity = async (item) => {
-  //     let finalQty = parseInt(item.quantity, 10);
-  //     if (isNaN(finalQty) || finalQty < 1) {
-  //         finalQty = 1;
-  //     }
-  //
-  //     try {
-  //         const token = localStorage.getItem("accessToken");
-  //
-  //         // 1. Gọi API cập nhật số lượng mới lên DB
-  //         const res = await fetch(`${BASE_URL}/cart-details/${item.id}/update-quantity`, {
-  //             method: "PUT",
-  //             headers: {
-  //                 "Content-Type": "application/json",
-  //                 Authorization: `Bearer ${token}`,
-  //             },
-  //             body: JSON.stringify({ quantity: finalQty }),
-  //         });
-  //
-  //         const data = await res.json();
-  //
-  //         if (!res.ok) {
-  //             toast.error(data.message || "Không thể cập nhật số lượng");
-  //             // Nếu lỗi từ backend (ví dụ vượt tồn kho), tải lại giỏ hàng để đồng bộ đúng
-  //             hanldeFetchCart();
-  //             return;
-  //         }
-  //
-  //         // Cập nhật lại item theo data chuẩn từ backend trả về
-  //         setCartItems((prev) =>
-  //             prev.map((i) => (i.id === item.id ? { ...i, ...data } : i))
-  //         );
-  //
-  //         // 2. Tính toán lại giỏ hàng tổng (Carts) nếu backend yêu cầu cập nhật thủ công qua API này giống như hàm tăng/giảm của bạn
-  //         // Tuy nhiên cách tối ưu nhất là gọi lại hàm hanldeFetchCart() để lấy dữ liệu mới nhất
-  //         hanldeFetchCart();
-  //         window.dispatchEvent(new Event("cartUpdated"));
-  //
-  //     } catch (err) {
-  //         console.error("Lỗi cập nhật số lượng trực tiếp: ", err);
-  //         toast.error("Đã xảy ra lỗi khi cập nhật số lượng.");
-  //     }
-  // };
 
-  // Hàm xử lý khi người dùng nhấn Enter hoặc click ra ngoài ô nhập (onBlur)
   const handleBlurQuantity = async (item) => {
     let finalQty = parseInt(item.quantity, 10);
-
-    // XỬ LÝ KHI NHẬP BẰNG 0 HOẶC ĐỂ TRỐNG (Xóa sản phẩm)
     if (isNaN(finalQty) || finalQty <= 0) {
       if (!user?.id) {
         const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
@@ -735,7 +505,6 @@ const Cart = () => {
         window.dispatchEvent(new Event("cartUpdated"));
         return;
       }
-
       if (
         window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?")
       ) {
@@ -749,9 +518,6 @@ const Cart = () => {
       }
       return;
     }
-
-    // XỬ LÝ KHI NHẬP SỐ HỢP LỆ (> 0)
-    // 1. Nếu là Guest: Lưu vào LocalStorage
     if (!user?.id) {
       const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
       const updatedCart = guestCart.map((i) =>
@@ -762,10 +528,8 @@ const Cart = () => {
       localStorage.setItem("guestCart", JSON.stringify(updatedCart));
       setCartItems(updatedCart);
       window.dispatchEvent(new Event("cartUpdated"));
-      return; // Rất quan trọng: Dừng lại tại đây, không gọi API bên dưới
+      return;
     }
-
-    // 2. Nếu là User đã đăng nhập: Gọi API cập nhật
     try {
       const token = localStorage.getItem("accessToken");
       const res = await fetch(
@@ -779,7 +543,6 @@ const Cart = () => {
           body: JSON.stringify({ quantity: finalQty }),
         },
       );
-
       const data = await res.json();
       if (res.ok) {
         hanldeFetchCart();
@@ -794,10 +557,9 @@ const Cart = () => {
       hanldeFetchCart();
     }
   };
+
   useEffect(() => {
-    if (cart?.id) {
-      hanldeFetchCart();
-    }
+    if (cart?.id) hanldeFetchCart();
   }, [cart]);
 
   const summary = calculateSummary(cartItems);
@@ -820,62 +582,216 @@ const Cart = () => {
     }
   };
 
+  // ── Custom checkbox ──
+  const Checkbox = ({ checked, onChange }) => (
+    <button
+      onClick={onChange}
+      style={{
+        width: 18,
+        height: 18,
+        border: `1px solid ${checked ? "#1a1a1a" : "#ccc"}`,
+        background: checked ? "#1a1a1a" : "transparent",
+        borderRadius: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        flexShrink: 0,
+        transition: "background 0.2s, border-color 0.2s",
+      }}
+    >
+      {checked && (
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path
+            d="M1.5 5L4 7.5L8.5 2.5"
+            stroke="#faf9f7"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+    </button>
+  );
+
   return (
-    <div className="min-h-screen py-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2">
-            <div className="flex justify-between items-center mb-10">
-              <h1 className="text-4xl font-bold text-gray-900">Cart</h1>
-              <span className="text-sm font-semibold text-gray-500 cursor-pointer hover:text-red-500">
-                🔍︎ Track Order
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#faf9f7",
+        fontFamily: "sans-serif",
+        color: "#1a1a1a",
+      }}
+    >
+      <div
+        style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px 80px" }}
+      >
+        {/* ── PAGE HEADER ── */}
+        <div style={{ marginBottom: 48 }}>
+          <p
+            style={{
+              fontSize: "0.62rem",
+              letterSpacing: "0.28em",
+              textTransform: "uppercase",
+              color: "#aaa",
+              marginBottom: 10,
+            }}
+          >
+            Your Selection
+          </p>
+          <h1
+            style={{
+              fontFamily: "'Georgia', serif",
+              fontSize: "clamp(2rem, 5vw, 3rem)",
+              fontWeight: 400,
+              margin: "0 0 16px",
+              lineHeight: 1.15,
+            }}
+          >
+            Shopping Cart
+          </h1>
+          <div style={{ width: 48, height: 1, background: "#1a1a1a" }} />
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 340px",
+            gap: 48,
+            alignItems: "start",
+          }}
+          className="cart-grid"
+        >
+          {/* ── LEFT: ITEMS ── */}
+          <div>
+            {/* Table header */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto auto auto",
+                gap: 16,
+                paddingBottom: 12,
+                borderBottom: "1px solid #1a1a1a",
+                fontSize: "0.62rem",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "#888",
+              }}
+            >
+              <span>Item</span>
+              <span style={{ textAlign: "center", minWidth: 110 }}>
+                Quantity
               </span>
+              <span style={{ textAlign: "right", minWidth: 100 }}>
+                Subtotal
+              </span>
+              <span style={{ minWidth: 24 }} />
             </div>
-            <div className="grid grid-cols-6 font-semibold border-b pb-3 text-gray-700 text-sm uppercase">
-              <div className="col-span-3">Item</div>
-              <div className="text-center">Quantity</div>
-              <div className="text-right">Unit Price</div>
-              <div className="text-center"></div>
-            </div>
+
+            {/* Items */}
             {cartItems.length > 0 ? (
               cartItems.map((item) => (
                 <div
                   key={item.id}
-                  className="grid grid-cols-6 items-center border-b py-6"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto auto auto",
+                    gap: 16,
+                    alignItems: "center",
+                    padding: "24px 0",
+                    borderBottom: "1px solid #e8e4df",
+                  }}
                 >
-                  <div className="col-span-3 flex items-start space-x-4">
-                    <input
-                      type="checkbox"
+                  {/* Product info */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 16,
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <Checkbox
                       checked={item.selected}
                       onChange={() => handleToggleSelect(item.id)}
-                      className="mt-2 w-4 h-4 border-gray-300 rounded"
                     />
 
-                    <img
-                      src={item.productImage}
-                      alt={item.productName}
-                      className="w-24 h-24 object-cover rounded"
-                    />
+                    <div
+                      style={{
+                        width: 80,
+                        height: 100,
+                        flexShrink: 0,
+                        overflow: "hidden",
+                        background: "#f0ece6",
+                      }}
+                    >
+                      <img
+                        src={item.productImage}
+                        alt={item.productName}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                    </div>
 
-                    <div className="flex flex-col">
-                      <div className="font-semibold text-base hover:text-red-500">
+                    <div style={{ flex: 1 }}>
+                      <p
+                        style={{
+                          fontFamily: "'Georgia', serif",
+                          fontSize: "0.92rem",
+                          fontWeight: 400,
+                          margin: "0 0 6px",
+                          color: "#1a1a1a",
+                          lineHeight: 1.4,
+                        }}
+                      >
                         {item.productName}
-                      </div>
-                      <div className="text-gray-500 text-sm">
-                        {item.productName ? item.productName.split(",")[0] : ""}
-                      </div>
-                      <div className="text-gray-500 text-sm">
+                      </p>
+                      <p
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "#aaa",
+                          margin: "0 0 3px",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
                         Size: {item.sizeName}
-                      </div>
+                      </p>
+                      <p
+                        style={{
+                          fontSize: "0.68rem",
+                          color: "#bbb",
+                          margin: 0,
+                          letterSpacing: "0.06em",
+                        }}
+                      >
+                        {item.stock ?? 0} in stock
+                      </p>
                     </div>
                   </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center border border-gray-300 rounded-full w-24 mx-auto p-1">
+
+                  {/* Quantity stepper */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 6,
+                      minWidth: 110,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        border: "1px solid #e8e4df",
+                        background: "#fff",
+                      }}
+                    >
                       <button
-                        className="text-lg px-2 hover:bg-gray-100 rounded-full"
                         onClick={() =>
-                          // handleToggleDecrease(item.id, item.priceAtTime)
-                          // Truyền thêm item.quantity và item.subtotal vào hàm
                           handleToggleDecrease(
                             item.id,
                             item.priceAtTime,
@@ -883,51 +799,33 @@ const Cart = () => {
                             item.subtotal,
                           )
                         }
+                        style={{
+                          width: 32,
+                          height: 32,
+                          border: "none",
+                          background: "transparent",
+                          cursor: "pointer",
+                          fontSize: "1rem",
+                          color: "#888",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = "#f0ece6")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "transparent")
+                        }
                       >
-                        -
+                        −
                       </button>
 
-                      {/*<input*/}
-                      {/*    type="number"*/}
-                      {/*    value={item.quantity}*/}
-                      {/*    min="1"*/}
-                      {/*    readOnly*/}
-                      {/*    className="w-10 text-center text-sm bg-transparent"*/}
-                      {/*/>*/}
-
-                      {/*MỚI*/}
-                      {/*<input*/}
-                      {/*    type="number"*/}
-                      {/*    value={item.quantity}*/}
-                      {/*    min="1"*/}
-                      {/*    // Giả sử backend trả về trường số lượng tồn kho nằm trong 'item.stock' hoặc 'item.sizeQuantity'*/}
-                      {/*    // Bạn hãy thay 'item.stock' bằng tên biến thực tế trong API của bạn*/}
-                      {/*    onChange={(e) => handleQuantityChange(item.id, e.target.value, item.stock)}*/}
-                      {/*    onBlur={() => handleBlurQuantity(item)}*/}
-                      {/*    onKeyDown={(e) => {*/}
-                      {/*        if (e.key === 'Enter') {*/}
-                      {/*            e.target.blur(); // Tự động trigger onBlur khi bấm Enter*/}
-                      {/*        }*/}
-                      {/*    }}*/}
-                      {/*    className="w-12 text-center text-sm bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"*/}
-                      {/*/>*/}
-
-                      {/* ĐOẠN CODE MỚI ĐÃ CẬP NHẬT */}
                       <input
                         type="number"
                         value={item.quantity}
-                        min="0" // Cho phép gõ số 0
-                        // // Giả sử backend trả về số lượng kho ở biến 'item.stock'. Bạn hãy đổi tên biến này nếu cần.
-                        // onChange={(e) => handleQuantityChange(item.id, e.target.value, item.stock)}
-                        //
-                        // onFocus={() => {
-                        //     // Trước khi người dùng sửa, lưu ngay số lượng và subtotal gốc vào bộ nhớ tạm
-                        //     setEditingItemData((prev) => ({
-                        //         ...prev,
-                        //         [item.id]: { quantity: item.quantity, subtotal: item.subtotal }
-                        //     }));
-                        // }}
-                        // Truyền item.stock (số lượng kho thực tế) vào hàm kiểm tra
+                        min="0"
                         onChange={(e) =>
                           handleQuantityChange(
                             item.id,
@@ -935,29 +833,35 @@ const Cart = () => {
                             item.stock,
                           )
                         }
-                        onFocus={() => {
+                        onFocus={() =>
                           setEditingItemData((prev) => ({
                             ...prev,
                             [item.id]: {
                               quantity: item.quantity,
                               subtotal: item.subtotal,
                             },
-                          }));
-                        }}
+                          }))
+                        }
                         onBlur={() => handleBlurQuantity(item)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.target.blur(); // Tự động kích hoạt hành động rời chuột (onBlur) khi nhấn Enter
-                          }
+                          if (e.key === "Enter") e.target.blur();
                         }}
-                        // Class CSS giúp ẩn hoàn toàn 2 nút mũi tên tăng giảm mặc định của trình duyệt đối với kiểu input number
-                        className="w-10 text-center text-sm bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        style={{
+                          width: 40,
+                          textAlign: "center",
+                          fontSize: "0.82rem",
+                          border: "none",
+                          background: "transparent",
+                          outline: "none",
+                          fontFamily: "sans-serif",
+                          color: "#1a1a1a",
+                          appearance: "textfield",
+                          MozAppearance: "textfield",
+                        }}
                       />
 
                       <button
-                        className="text-lg px-2 hover:bg-gray-100 rounded-full"
                         onClick={() =>
-                          // SỬA TẠI ĐÂY: Truyền bổ sung item.quantity và item.stock vào trong hàm
                           handleToggleIncrease(
                             item.id,
                             item.priceAtTime,
@@ -965,105 +869,359 @@ const Cart = () => {
                             item.stock,
                           )
                         }
+                        style={{
+                          width: 32,
+                          height: 32,
+                          border: "none",
+                          background: "transparent",
+                          cursor: "pointer",
+                          fontSize: "1rem",
+                          color: "#888",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = "#f0ece6")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "transparent")
+                        }
                       >
                         +
                       </button>
-                      {/*<button*/}
-                      {/*    className="text-lg px-2 hover:bg-gray-100 rounded-full"*/}
-                      {/*    onClick={() => {*/}
-                      {/*        // Thay 'item.stock' bằng tên biến tồn kho thực tế của bạn*/}
-                      {/*        if (item.quantity >= (item.stock || 99)) {*/}
-                      {/*            toast.error("Số lượng đã đạt giới hạn tồn kho!");*/}
-                      {/*            return;*/}
-                      {/*        }*/}
-                      {/*        handleToggleIncrease(item.id, item.priceAtTime);*/}
-                      {/*    }}*/}
-                      {/*>*/}
-                      {/*    +*/}
-                      {/*</button>*/}
                     </div>
-                    {/*                                    <span className="text-[11px] text-gray-500 font-medium tracking-wide bg-gray-100 px-2 py-0.5 rounded-full">*/}
-                    {/*    Còn lại: {item.stock ?? 0} sản phẩm*/}
-                    {/*</span>*/}
-                    <span className="text-[11px] text-gray-500 font-medium tracking-wide bg-gray-100 px-2 py-0.5 rounded-full">
-                      Còn lại: {item.stock ?? 0} sản phẩm
-                    </span>
                   </div>
-                  <div className="text-right font-semibold text-lg">
-                    {formatVND(item.subtotal)}
-                  </div>
-                  <div className="text-center">
-                    <button
-                      onClick={() =>
-                        handleDelete(item.id, item.quantity, item.subtotal)
-                      }
-                      className="text-gray-500 hover:text-red-500"
+
+                  {/* Subtotal */}
+                  <div style={{ textAlign: "right", minWidth: 100 }}>
+                    <p
+                      style={{
+                        fontFamily: "sans-serif",
+                        fontSize: "0.88rem",
+                        fontWeight: 600,
+                        margin: 0,
+                        color: "#1a1a1a",
+                      }}
                     >
-                      <FaTrash size={18} />
-                    </button>
+                      {formatVND(item.subtotal)}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "#bbb",
+                        margin: "3px 0 0",
+                      }}
+                    >
+                      {formatVND(item.priceAtTime)} / pc
+                    </p>
                   </div>
+
+                  {/* Delete */}
+                  <button
+                    onClick={() =>
+                      handleDelete(item.id, item.quantity, item.subtotal)
+                    }
+                    style={{
+                      width: 24,
+                      height: 24,
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#ccc",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "color 0.2s",
+                      padding: 0,
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = "#1a1a1a")
+                    }
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#ccc")}
+                  >
+                    <FaTrash size={14} />
+                  </button>
                 </div>
               ))
             ) : (
-              <div className="text-center py-10 text-gray-500">
-                Cart is empty.
+              <div
+                style={{
+                  padding: "64px 0",
+                  textAlign: "center",
+                  color: "#aaa",
+                  fontSize: "0.85rem",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Your cart is empty.
               </div>
             )}
 
-            <div className="mt-8 flex justify-start">
+            {/* Continue shopping */}
+            <div style={{ marginTop: 32 }}>
               <button
                 onClick={() => navigate("/product")}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md transition font-semibold hover:bg-black hover:text-white"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 24px",
+                  border: "1px solid #e8e4df",
+                  background: "transparent",
+                  color: "#888",
+                  fontSize: "0.68rem",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  fontFamily: "sans-serif",
+                  transition: "border-color 0.2s, color 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#1a1a1a";
+                  e.currentTarget.style.color = "#1a1a1a";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#e8e4df";
+                  e.currentTarget.style.color = "#888";
+                }}
               >
+                <ArrowLeft size={13} strokeWidth={1.5} />
                 Continue Shopping
               </button>
             </div>
           </div>
 
-          <div className="lg:col-span-1 border-t-4 border-red-500 p-6 rounded-lg bg-gray-50 shadow-md h-fit">
-            <h2 className="text-3xl font-bold mb-6 text-red-500">Summary</h2>
+          {/* ── RIGHT: SUMMARY ── */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e8e4df",
+              padding: "32px 28px",
+              position: "sticky",
+              top: 88,
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.62rem",
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "#aaa",
+                marginBottom: 8,
+              }}
+            >
+              Order
+            </p>
+            <h2
+              style={{
+                fontFamily: "'Georgia', serif",
+                fontSize: "1.4rem",
+                fontWeight: 400,
+                margin: "0 0 24px",
+                color: "#1a1a1a",
+              }}
+            >
+              Summary
+            </h2>
+            <div
+              style={{
+                width: 32,
+                height: 1,
+                background: "#1a1a1a",
+                marginBottom: 28,
+              }}
+            />
 
-            <div className="mb-6 pb-4 border-b">
-              <div className="flex">
+            {/* Discount code */}
+            <div
+              style={{
+                marginBottom: 28,
+                paddingBottom: 28,
+                borderBottom: "1px solid #e8e4df",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: "0.65rem",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color: "#888",
+                  marginBottom: 10,
+                }}
+              >
+                Discount Code
+              </p>
+              <div style={{ display: "flex", gap: 0 }}>
                 <input
                   type="text"
-                  placeholder="Discount Code"
-                  className="flex-grow border border-gray-300 p-3 rounded-l focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  placeholder="Enter code..."
+                  style={{
+                    flex: 1,
+                    padding: "10px 12px",
+                    border: "1px solid #e8e4df",
+                    borderRight: "none",
+                    background: "transparent",
+                    fontSize: "0.78rem",
+                    color: "#1a1a1a",
+                    outline: "none",
+                    fontFamily: "sans-serif",
+                  }}
                 />
-                <button className="bg-black text-white px-4 py-3 rounded-r font-semibold hover:bg-gray-800 transition">
+                <button
+                  style={{
+                    padding: "10px 16px",
+                    background: "#1a1a1a",
+                    color: "#faf9f7",
+                    border: "1px solid #1a1a1a",
+                    fontSize: "0.65rem",
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    fontFamily: "sans-serif",
+                    transition: "background 0.2s, color 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#1a1a1a";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#1a1a1a";
+                    e.currentTarget.style.color = "#faf9f7";
+                  }}
+                >
                   Apply
                 </button>
               </div>
             </div>
-            <div className="space-y-4 mb-6">
-              <div className="flex justify-between text-lg text-gray-800">
-                <span>Subtotal:</span>
-                <span className="font-semibold">
-                  {formatVND(summary.subtotal)}
-                </span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Shipping fee:</span>
-                <span>{summary.shippingText}</span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Discount:</span>
-                <span>{formatVND(summary.discount)}</span>
-              </div>
+
+            {/* Line items */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+                marginBottom: 24,
+              }}
+            >
+              {[
+                { label: "Subtotal", value: formatVND(summary.subtotal) },
+                { label: "Shipping", value: summary.shippingText },
+                { label: "Discount", value: formatVND(summary.discount) },
+              ].map(({ label, value }) => (
+                <div
+                  key={label}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "0.78rem",
+                      color: "#888",
+                      letterSpacing: "0.03em",
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "0.82rem",
+                      color: "#1a1a1a",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {value}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="flex justify-between font-bold text-xl border-t pt-4">
-              <span>Total:</span>
-              <span className="text-red-500">{formatVND(summary.total)}</span>
+
+            {/* Total */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderTop: "1px solid #1a1a1a",
+                paddingTop: 20,
+                marginBottom: 28,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "'Georgia', serif",
+                  fontSize: "1rem",
+                  color: "#1a1a1a",
+                }}
+              >
+                Total
+              </span>
+              <span
+                style={{
+                  fontFamily: "sans-serif",
+                  fontSize: "1.1rem",
+                  fontWeight: 700,
+                  color: "#1a1a1a",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {formatVND(summary.total)}
+              </span>
             </div>
+
+            {/* Checkout button */}
             <button
               onClick={handleCheckout}
-              className="w-full mt-8 bg-black text-white py-3 rounded font-bold text-lg hover:bg-gray-800 transition shadow-lg"
+              style={{
+                width: "100%",
+                padding: "14px 0",
+                background: "#1a1a1a",
+                color: "#faf9f7",
+                border: "1px solid #1a1a1a",
+                fontFamily: "sans-serif",
+                fontSize: "0.72rem",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                transition: "background 0.25s, color 0.25s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "#1a1a1a";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#1a1a1a";
+                e.currentTarget.style.color = "#faf9f7";
+              }}
             >
-              Proceed to Checkout
+              Proceed to Checkout <ArrowRight size={14} strokeWidth={1.5} />
             </button>
           </div>
         </div>
       </div>
+
+      {/* Responsive */}
+      <style>{`
+        @media (max-width: 768px) {
+          .cart-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+      `}</style>
+
       <ChatBot />
       <Contact />
     </div>

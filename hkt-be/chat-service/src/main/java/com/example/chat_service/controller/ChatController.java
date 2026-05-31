@@ -7,7 +7,7 @@ import com.example.chat_service.client.CartClient;
 import com.example.chat_service.dto.CartResponse;
 import com.example.chat_service.entities.Product;
 import com.example.chat_service.service.EmbeddingService;
-import com.example.chat_service.service.FuzzyProductMatcher;   // ← import chung
+import com.example.chat_service.service.FuzzyProductMatcher;
 import com.example.chat_service.service.GroqService;
 import com.example.chat_service.service.ProductCacheService;
 import com.example.chat_service.service.VectorStoreService;
@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/chat")
@@ -31,10 +33,21 @@ public class ChatController {
     private final CartIntentDetector   cartIntentDetector;
     private final CartActionParser     cartActionParser;
     private final CartActionService    cartActionService;
-    private final FuzzyProductMatcher  fuzzyMatcher;           // ← inject chung
+    private final FuzzyProductMatcher  fuzzyMatcher;
 
-    private static final Map<String, Deque<String[]>> chatHistory = new ConcurrentHashMap<>();
+    // ── Session state ─────────────────────────────────────────────────────────
+    private static final Map<String, Deque<String[]>> chatHistory          = new ConcurrentHashMap<>();
+    private static final Map<String, String>          lastMentionedProduct = new ConcurrentHashMap<>();
     private static final int MAX_PAIRS = 5;
+
+    // ── Co-reference words cần resolve ───────────────────────────────────────
+    // Các từ/cụm mà user dùng để chỉ sản phẩm đã nhắc trước đó
+    private static final List<String> CO_REF_PATTERNS = List.of(
+            "sản phẩm đó", "sản phẩm này", "cái đó", "cái này",
+            "thứ đó", "thứ này", "món đó", "món này",
+            "item đó", "item này", "cái kia", "thứ kia",
+            "nó", "đó", "vậy đó"
+    );
 
     private static final String SYSTEM_PROMPT = """
             Bạn là trợ lý mua sắm dễ thương của KH3T Shop.
@@ -74,6 +87,7 @@ public class ChatController {
 
         String token      = extractToken(request.getHeader("Authorization"));
         String userPrompt = promptRequest.getPrompt().trim();
+        String userId     = token != null ? "user_" + token : "guest";
 
         if (userPrompt.isEmpty()) {
             return ResponseEntity.ok(Map.of(
@@ -89,11 +103,18 @@ public class ChatController {
                         "message", "Anh/chị vui lòng đăng nhập để sử dụng tính năng giỏ hàng nhé! 🔐",
                         "suggestedProducts", List.of()));
             }
+
+            // ★ RESOLVE CO-REFERENCE: "nó", "cái đó" → tên sản phẩm thật từ session
+            String resolvedPrompt = resolveCoReference(userPrompt, userId);
+
             List<String> productNames = productCacheService.getAllProducts()
                     .stream().map(Product::getName).collect(Collectors.toList());
-            String englishQueryForCart = embeddingService.translateToEnglish(userPrompt);
+
+            // Dịch câu đã resolve sang tiếng Anh để embed Qdrant
+            String englishQueryForCart = embeddingService.translateToEnglish(resolvedPrompt);
+
             CartActionParser.ParsedCartAction parsed =
-                    cartActionParser.parse(userPrompt, englishQueryForCart, productNames);
+                    cartActionParser.parse(resolvedPrompt, englishQueryForCart, productNames);
 
             Map<String, Object> cartResponse = switch (cartIntent) {
                 case ADD_TO_CART      -> cartActionService.buildAddToCartAction(parsed, token);
@@ -105,7 +126,6 @@ public class ChatController {
         }
 
         // ── Conversation ─────────────────────────────────────────────────────
-        String userId = token != null ? "user_" + token : "guest";
         Deque<String[]> history = chatHistory.computeIfAbsent(userId, k -> new ArrayDeque<>());
         String userMessage = buildUserMessage(userPrompt, history);
 
@@ -117,7 +137,10 @@ public class ChatController {
 
             savePair(history, userPrompt, botReply);
 
+            // ★ CẬP NHẬT lastMentionedProduct: lưu sản phẩm đầu tiên AI đề cập trong reply
             List<Map<String, Object>> suggestedProducts = findSuggestedProducts(botReply);
+            updateLastMentionedProduct(userId, suggestedProducts, botReply, userPrompt);
+
             List<Long> compareIds = detectCompareRequest(userPrompt, botReply);
 
             Map<String, Object> response = new HashMap<>();
@@ -133,6 +156,114 @@ public class ChatController {
             return ResponseEntity.ok(Map.of(
                     "message", "Em đang hơi lag xíu, anh/chị nhắn lại giúp em nha! 😅",
                     "suggestedProducts", List.of()));
+        }
+    }
+
+    // ── Co-reference resolution ───────────────────────────────────────────────
+
+    /**
+     * Thay thế các từ chỉ định mơ hồ ("nó", "cái đó", "sản phẩm đó", …)
+     * bằng tên sản phẩm cuối cùng được đề cập trong session của userId.
+     *
+     * Ví dụ:
+     *   lastMentionedProduct = "Nike Air Max 270"
+     *   input  = "ok mua nó đi size M"
+     *   output = "ok mua Nike Air Max 270 đi size M"
+     */
+    private String resolveCoReference(String prompt, String userId) {
+        String lower = prompt.toLowerCase();
+
+        // Kiểm tra có từ co-reference không
+        boolean hasCoRef = CO_REF_PATTERNS.stream().anyMatch(lower::contains);
+        if (!hasCoRef) return prompt;
+
+        // Lấy sản phẩm được nhắc gần nhất trong session
+        String lastProduct = lastMentionedProduct.get(userId);
+        if (lastProduct == null || lastProduct.isBlank()) {
+            System.out.printf("[CoRef] userId=%s: co-ref detected but no lastMentionedProduct in session%n", userId);
+            return prompt; // không có context → giữ nguyên, để CartActionParser tự xử lý
+        }
+
+        // Thay thế theo thứ tự từ dài nhất → ngắn nhất để tránh partial replace
+        String resolved = prompt;
+        List<String> sortedPatterns = CO_REF_PATTERNS.stream()
+                .sorted(Comparator.comparingInt(String::length).reversed())
+                .collect(Collectors.toList());
+
+        for (String pattern : sortedPatterns) {
+            // Case-insensitive replace, giữ nguyên phần còn lại của câu
+            resolved = resolved.replaceAll("(?i)" + Pattern.quote(pattern), lastProduct);
+        }
+
+        System.out.printf("[CoRef] userId=%s | '%s' → '%s' (resolved with: %s)%n",
+                userId, prompt, resolved, lastProduct);
+        return resolved;
+    }
+
+    /**
+     * Cập nhật sản phẩm được nhắc gần nhất.
+     *
+     * Ưu tiên 1: suggestedProducts (đã match tên trong botReply)
+     * Ưu tiên 2: fuzzy match tên sản phẩm trong botReply (phòng khi casing/dấu lệch)
+     * Ưu tiên 3: fuzzy match trong userPrompt (phòng khi bot không nhắc lại tên)
+     */
+    private void updateLastMentionedProduct(String userId,
+                                            List<Map<String, Object>> suggestedProducts,
+                                            String botReply,
+                                            String userPrompt) {
+        // Ưu tiên 1: suggestedProducts đã được resolve chính xác
+        if (suggestedProducts != null && !suggestedProducts.isEmpty()) {
+            String productName = (String) suggestedProducts.get(0).get("name");
+            if (productName != null && !productName.isBlank()) {
+                lastMentionedProduct.put(userId, productName);
+                System.out.printf("[CoRef] userId=%s: updated from suggestedProducts → '%s'%n",
+                        userId, productName);
+                return;
+            }
+        }
+
+        // Ưu tiên 2: fuzzy match tên sản phẩm trong botReply
+        //   (xử lý trường hợp casing/dấu cách khác nhau giữa DB và reply)
+        List<Product> allProducts = productCacheService.getAllProducts();
+        if (!allProducts.isEmpty()) {
+            List<String> allNames = allProducts.stream()
+                    .map(Product::getName).collect(Collectors.toList());
+
+            // Thử match trực tiếp trong botReply trước (nhanh hơn fuzzy)
+            String lowerReply = botReply.toLowerCase();
+            Optional<Product> directMatch = allProducts.stream()
+                    .filter(p -> {
+                        String n = p.getName().toLowerCase();
+                        return lowerReply.contains(n)
+                                || lowerReply.contains(n.replace(" ", ""))
+                                || lowerReply.contains(n.replace("-", ""));
+                    })
+                    .findFirst();
+
+            if (directMatch.isPresent()) {
+                lastMentionedProduct.put(userId, directMatch.get().getName());
+                System.out.printf("[CoRef] userId=%s: updated from botReply direct match → '%s'%n",
+                        userId, directMatch.get().getName());
+                return;
+            }
+
+            // Fallback: fuzzy match trong botReply
+            FuzzyProductMatcher.MatchResult bestFromReply =
+                    fuzzyMatcher.findBest(botReply, allNames);
+            if (bestFromReply.isAccepted()) {
+                lastMentionedProduct.put(userId, bestFromReply.name);
+                System.out.printf("[CoRef] userId=%s: updated from botReply fuzzy → '%s' (%.3f)%n",
+                        userId, bestFromReply.name, bestFromReply.score);
+                return;
+            }
+
+            // Ưu tiên 3: fuzzy match trong userPrompt
+            List<Product> fromKeyword = findByKeyword(userPrompt);
+            if (!fromKeyword.isEmpty()) {
+                lastMentionedProduct.put(userId, fromKeyword.get(0).getName());
+                System.out.printf("[CoRef] userId=%s: updated from userPrompt keyword → '%s'%n",
+                        userId, fromKeyword.get(0).getName());
+            }
         }
     }
 
@@ -190,7 +321,7 @@ public class ChatController {
         return sb.toString();
     }
 
-    // ── findByKeyword — dùng FuzzyProductMatcher thay similarity() nội bộ ───
+    // ── findByKeyword — dùng FuzzyProductMatcher ─────────────────────────────
 
     private static final Set<String> STOP_WORDS = Set.of(
             "cái", "con", "bộ", "của", "và", "hoặc", "có", "không", "thì",
@@ -216,9 +347,7 @@ public class ChatController {
                     String name      = p.getName().toLowerCase();
                     String[] nameParts = name.split("[\\s\\-/|,]+");
                     return keywords.stream().anyMatch(keyword ->
-                            // exact contain
                             name.contains(keyword)
-                                    // fuzzy từng token trong tên (dùng FuzzyProductMatcher)
                                     || Arrays.stream(nameParts).anyMatch(part ->
                                     part.length() > 2 && fuzzyMatcher.fuzzyContains(
                                             keyword, part, FuzzyProductMatcher.KEYWORD_THRESHOLD))
@@ -228,7 +357,7 @@ public class ChatController {
                 .collect(Collectors.toList());
     }
 
-    // ── Helpers không thay đổi ────────────────────────────────────────────────
+    // ── Product detail builders ───────────────────────────────────────────────
 
     private String buildProductDetail(Product p) {
         String sizes = (p.getSizeDetails() == null || p.getSizeDetails().isEmpty())
@@ -249,8 +378,8 @@ public class ChatController {
                 "⭐ %s\n   Giá: %,.0fđ | Danh mục: %s\n   Chất liệu: %s | Form: %s\n" +
                         "   Mô tả: %s\n   Rating: %.1f⭐ | %s | %s | Size: %s\n",
                 p.getName(), p.getCostPrice(), category,
-                p.getMaterial() != null ? p.getMaterial() : "N/A",
-                p.getForm()     != null ? p.getForm()     : "N/A",
+                p.getMaterial()    != null ? p.getMaterial()    : "N/A",
+                p.getForm()        != null ? p.getForm()        : "N/A",
                 p.getDescription() != null ? p.getDescription() : "N/A",
                 p.getRating(), discount, stock, sizes);
     }
@@ -263,15 +392,17 @@ public class ChatController {
                 "- %s\n   Giá: %,.0fđ | Danh mục: %s\n   Chất liệu: %s | Form: %s\n" +
                         "   Mô tả: %s\n   Rating: %.1f⭐ | %s | %s | Size: %s\n",
                 p.get("name"), (double) p.get("price"),
-                p.getOrDefault("category", "N/A"),
-                p.getOrDefault("material", "N/A"),
-                p.getOrDefault("form",     "N/A"),
+                p.getOrDefault("category",    "N/A"),
+                p.getOrDefault("material",    "N/A"),
+                p.getOrDefault("form",        "N/A"),
                 p.getOrDefault("description", "N/A"),
                 rating,
                 discount > 0 ? "giảm giá " + (int) discount + "%" : "không giảm giá",
                 quantity > 0 ? "còn hàng (" + quantity + " sản phẩm)" : "hết hàng",
                 p.getOrDefault("sizes", "N/A"));
     }
+
+    // ── Intent detection ──────────────────────────────────────────────────────
 
     private String detectIntent(String prompt) {
         String lower = prompt.toLowerCase();
@@ -365,10 +496,14 @@ public class ChatController {
         };
     }
 
+    // ── Session helpers ───────────────────────────────────────────────────────
+
     private void savePair(Deque<String[]> history, String userMsg, String botMsg) {
         history.addFirst(new String[]{userMsg, botMsg});
         while (history.size() > MAX_PAIRS) history.removeLast();
     }
+
+    // ── Suggested products & compare ─────────────────────────────────────────
 
     private List<Map<String, Object>> findSuggestedProducts(String botReply) {
         List<Product> allProducts = productCacheService.getAllProducts();
@@ -381,8 +516,12 @@ public class ChatController {
                             || lower.contains(name.replace(" ", ""))
                             || lower.contains(name.replace("-", ""));
                 })
-                .map(p -> { Map<String, Object> m = new HashMap<>();
-                    m.put("id", p.getId()); m.put("name", p.getName()); return m; })
+                .map(p -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", p.getId());
+                    m.put("name", p.getName());
+                    return m;
+                })
                 .distinct().limit(5).collect(Collectors.toList());
     }
 
@@ -403,6 +542,8 @@ public class ChatController {
         return (ids.size() >= 2 && ids.size() <= 4) ? new ArrayList<>(ids) : null;
     }
 
+    // ── Token helper ──────────────────────────────────────────────────────────
+
     private String extractToken(String header) {
         if (header == null || !header.startsWith("Bearer ")) return null;
         return header.substring(7).trim();
@@ -415,7 +556,9 @@ public class ChatController {
         boolean connected = cartClient.ping();
         return ResponseEntity.ok(Map.of(
                 "cartServiceConnected", connected,
-                "message", connected ? "✅ Kết nối cart-service thành công!" : "❌ Không kết nối được cart-service"));
+                "message", connected
+                        ? "✅ Kết nối cart-service thành công!"
+                        : "❌ Không kết nối được cart-service"));
     }
 
     @GetMapping("/cart/{accountId}")
@@ -445,6 +588,7 @@ public class ChatController {
         return ResponseEntity.ok(
                 cartActionService.executeAddToCart(productId, sizeDetailId, quantity, token));
     }
+
 
     @PostMapping("/cart/confirm-remove")
     public ResponseEntity<Map<String, Object>> confirmRemoveFromCart(
