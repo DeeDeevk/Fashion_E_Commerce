@@ -36,7 +36,7 @@ export default function Footer() {
                   color: "#faf9f7",
                 }}
               >
-                KH<span style={{ color: "#c8a96e" }}>T</span> STUDIO
+                HK<span style={{ color: "#c8a96e" }}>T</span> STUDIO
               </span>
             </div>
             <p
@@ -105,7 +105,7 @@ export default function Footer() {
               Contact
             </p>
             {[
-              { icon: <Phone size={14} />, text: "093 - 3462 - 6578" },
+              { icon: <Phone size={14} />, text: "081 - 277 - 7990" },
               { icon: <Mail size={14} />, text: "contact@hktstudio.com" },
               {
                 icon: <MapPin size={14} />,

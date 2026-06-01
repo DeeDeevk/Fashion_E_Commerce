@@ -25,21 +25,27 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
             "LEFT JOIN FETCH p.category")
     List<Product> findAllWithDetails();
 
-    @Query(value = "SELECT DISTINCT p FROM Product p " +
-            "LEFT JOIN FETCH p.sizeDetails sd " +
-            "LEFT JOIN FETCH sd.size " +
-            "LEFT JOIN FETCH p.category " +
+    // Repository — thay findAllPagedWithFilter bằng 2 method riêng
+    @Query(value = "SELECT p.id FROM Product p " +
+            "LEFT JOIN p.category c " +
             "WHERE (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))) " +
-            "AND (:category IS NULL OR p.category.name = :category) " +
+            "AND (:category IS NULL OR c.name = :category) " +
             "AND (:status IS NULL OR CAST(p.status AS string) = :status)",
-            countQuery = "SELECT COUNT(DISTINCT p) FROM Product p " +  // ← thêm countQuery
-                    "LEFT JOIN p.category " +
+            countQuery = "SELECT COUNT(DISTINCT p) FROM Product p " +
+                    "LEFT JOIN p.category c " +
                     "WHERE (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))) " +
-                    "AND (:category IS NULL OR p.category.name = :category) " +
+                    "AND (:category IS NULL OR c.name = :category) " +
                     "AND (:status IS NULL OR CAST(p.status AS string) = :status)")
-    Page<Product> findAllPagedWithFilter(
+    Page<Integer> findProductIdsPaged(
             @Param("search") String search,
             @Param("category") String category,
             @Param("status") String status,
             Pageable pageable);
+
+    @Query("SELECT DISTINCT p FROM Product p " +
+            "LEFT JOIN FETCH p.sizeDetails sd " +
+            "LEFT JOIN FETCH sd.size " +
+            "LEFT JOIN FETCH p.category " +
+            "WHERE p.id IN :ids")
+    List<Product> findByIdsWithDetails(@Param("ids") List<Integer> ids);
 }
