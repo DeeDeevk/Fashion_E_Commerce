@@ -59,3 +59,12 @@ qdrant:
 jina:
   api:
     key: ${JINA_API_KEY}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true

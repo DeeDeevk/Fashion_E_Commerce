@@ -57,15 +57,29 @@ export default function Header() {
     }
   };
 
-  useEffect(() => {
-    fetchCartCount();
-    window.addEventListener("cartUpdated", fetchCartCount);
-    window.addEventListener("storage", fetchCartCount);
-    return () => {
-      window.removeEventListener("cartUpdated", fetchCartCount);
-      window.removeEventListener("storage", fetchCartCount);
-    };
-  }, []);
+  // useEffect(() => {
+  //   fetchCartCount();
+  //   window.addEventListener("cartUpdated", fetchCartCount);
+  //   window.addEventListener("storage", fetchCartCount);
+  //   return () => {
+  //     window.removeEventListener("cartUpdated", fetchCartCount);
+  //     window.removeEventListener("storage", fetchCartCount);
+  //   };
+  // }, []);
+
+    useEffect(() => {
+        fetchCartCount();
+        window.addEventListener("cartUpdated", fetchCartCount);
+        window.addEventListener("storage", fetchCartCount);
+        window.addEventListener("login", fetchCartCount); // Lắng nghe thêm event login
+
+        return () => {
+            window.removeEventListener("cartUpdated", fetchCartCount);
+            window.removeEventListener("storage", fetchCartCount);
+            window.removeEventListener("login", fetchCartCount);
+        };
+    }, [isLoggedIn]); // Thêm isLoggedIn vào đây
+
 
   useEffect(() => {
     const checkAuth = () => {
@@ -108,9 +122,13 @@ export default function Header() {
     }
   };
 
-  useEffect(() => {
-    fetchUser();
-  }, []);
+    useEffect(() => {
+        if (isLoggedIn) {
+            fetchUser();
+        } else {
+            setUser(null); // Clear thông tin user khi chưa đăng nhập hoặc đăng xuất
+        }
+    }, [isLoggedIn]); // Phản ứng lại khi trạng thái đăng nhập thay đổi
 
   const fetchCart = async () => {
     try {
