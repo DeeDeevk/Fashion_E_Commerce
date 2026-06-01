@@ -4,6 +4,7 @@ import com.example.chat_service.cart.CartActionParser;
 import com.example.chat_service.cart.CartActionService;
 import com.example.chat_service.cart.CartIntentDetector;
 import com.example.chat_service.client.CartClient;
+import com.example.chat_service.client.OrderClient;
 import com.example.chat_service.dto.CartResponse;
 import com.example.chat_service.entities.Product;
 import com.example.chat_service.service.EmbeddingService;
@@ -12,6 +13,7 @@ import com.example.chat_service.service.GroqService;
 import com.example.chat_service.service.ProductCacheService;
 import com.example.chat_service.service.VectorStoreService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,10 +32,12 @@ public class ChatController {
     private final VectorStoreService   vectorStoreService;
     private final EmbeddingService     embeddingService;
     private final CartClient           cartClient;
+    private final OrderClient          orderClient;
     private final CartIntentDetector   cartIntentDetector;
     private final CartActionParser     cartActionParser;
     private final CartActionService    cartActionService;
     private final FuzzyProductMatcher  fuzzyMatcher;
+    private final JwtDecoder           jwtDecoder;
 
     // ── Session state ─────────────────────────────────────────────────────────
     private static final Map<String, Deque<String[]>> chatHistory          = new ConcurrentHashMap<>();
@@ -50,7 +54,7 @@ public class ChatController {
     );
 
     private static final String SYSTEM_PROMPT = """
-            Bạn là trợ lý mua sắm dễ thương của KH3T Shop.
+            Bạn là trợ lý mua sắm dễ thương của HKT Shop.
             Xưng "em", gọi khách là "anh/chị", dùng emoji phù hợp.
             Trả lời ngắn gọn tối đa 3 câu, dựa HOÀN TOÀN vào thông tin được cung cấp.
             TUYỆT ĐỐI không bịa thêm thông tin sản phẩm ngoài những gì được cung cấp.
@@ -66,7 +70,9 @@ public class ChatController {
                           VectorStoreService vectorStoreService, EmbeddingService embeddingService,
                           CartClient cartClient, CartIntentDetector cartIntentDetector,
                           CartActionParser cartActionParser, CartActionService cartActionService,
-                          FuzzyProductMatcher fuzzyMatcher) {
+                          FuzzyProductMatcher fuzzyMatcher,
+                          OrderClient orderClient,
+                          JwtDecoder jwtDecoder) {
         this.groqService         = groqService;
         this.productCacheService = productCacheService;
         this.vectorStoreService  = vectorStoreService;
@@ -76,6 +82,8 @@ public class ChatController {
         this.cartActionParser    = cartActionParser;
         this.cartActionService   = cartActionService;
         this.fuzzyMatcher        = fuzzyMatcher;
+        this.orderClient         = orderClient;
+        this.jwtDecoder          = jwtDecoder;
     }
 
     // ── POST /chat/ask ────────────────────────────────────────────────────────
@@ -117,6 +125,7 @@ public class ChatController {
                     cartActionParser.parse(resolvedPrompt, englishQueryForCart, productNames);
 
             Map<String, Object> cartResponse = switch (cartIntent) {
+                case BUY_NOW          -> cartActionService.buildBuyNowAction(parsed, token);
                 case ADD_TO_CART      -> cartActionService.buildAddToCartAction(parsed, token);
                 case REMOVE_FROM_CART -> cartActionService.buildRemoveFromCartAction(parsed, token);
                 case VIEW_CART        -> cartActionService.viewCart(token);
@@ -589,7 +598,6 @@ public class ChatController {
                 cartActionService.executeAddToCart(productId, sizeDetailId, quantity, token));
     }
 
-
     @PostMapping("/cart/confirm-remove")
     public ResponseEntity<Map<String, Object>> confirmRemoveFromCart(
             HttpServletRequest request, @RequestBody Map<String, Object> body) {
@@ -601,6 +609,171 @@ public class ChatController {
         return ResponseEntity.ok(cartClient.deleteCartDetail(cartDetailId, token));
     }
 
+
+    // ── GET /chat/order/addresses — lấy danh sách địa chỉ của user ────────────
+    @GetMapping("/order/addresses")
+    public ResponseEntity<Map<String, Object>> getOrderAddresses(HttpServletRequest request) {
+        String token = extractToken(request.getHeader("Authorization"));
+        if (token == null)
+            return ResponseEntity.ok(Map.of("error", "Vui lòng đăng nhập ạ 🔐"));
+
+        // Decode userId từ JWT (dùng lại logic của CartActionService)
+        try {
+            org.springframework.security.oauth2.jwt.Jwt jwt =
+                    jwtDecoder.decode(token);
+            Number idClaim = jwt.getClaim("id");
+            if (idClaim == null)
+                return ResponseEntity.ok(Map.of("error", "Không lấy được thông tin user"));
+
+            int userId = idClaim.intValue();
+            java.util.List<Map<String, Object>> addresses =
+                    orderClient.getAddresses(userId, token);
+
+            if (addresses == null || addresses.isEmpty())
+                return ResponseEntity.ok(Map.of(
+                        "addresses", java.util.List.of(),
+                        "message",   "Bạn chưa có địa chỉ nào được lưu"));
+
+            return ResponseEntity.ok(Map.of("addresses", addresses));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", "Lỗi lấy địa chỉ: " + e.getMessage()));
+        }
+    }
+
+    // ── POST /chat/order/confirm — tạo order y chang Checkout.handleConfirm ───
+    @PostMapping("/order/confirm")
+    public ResponseEntity<Map<String, Object>> confirmOrder(
+            HttpServletRequest request,
+            @RequestBody OrderConfirmRequest req) {
+
+        String token = extractToken(request.getHeader("Authorization"));
+        if (token == null)
+            return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "Vui lòng đăng nhập ạ 🔐"));
+
+        try {
+            // 1. Decode userId
+            org.springframework.security.oauth2.jwt.Jwt jwt = jwtDecoder.decode(token);
+            Number idClaim = jwt.getClaim("id");
+            if (idClaim == null) return ResponseEntity.ok(Map.of(
+                    "success", false, "message", "Không lấy được thông tin user"));
+            int userId = idClaim.intValue();
+
+            // 2. Lấy thông tin customer
+            Map<String, Object> customer = orderClient.getCustomer(userId, token);
+            if (customer == null) return ResponseEntity.ok(Map.of(
+                    "success", false, "message", "Không lấy được thông tin khách hàng ạ 😔"));
+
+            String name  = (String) customer.getOrDefault("fullName",    "");
+            String phone = (String) customer.getOrDefault("phoneNumber", "");
+            String email = (String) customer.getOrDefault("email",       "");
+
+            // 3. Lấy địa chỉ theo addressId
+            java.util.List<Map<String, Object>> addresses =
+                    orderClient.getAddresses(userId, token);
+            if (addresses == null || addresses.isEmpty()) return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "Anh/chị chưa có địa chỉ nào, vui lòng vào trang Checkout để thêm ạ!"));
+
+            Map<String, Object> selectedAddr = addresses.stream()
+                    .filter(a -> {
+                        Object id = a.get("id");
+                        return id != null && ((Number) id).intValue() == req.addressId;
+                    })
+                    .findFirst().orElse(null);
+
+            if (selectedAddr == null) return ResponseEntity.ok(Map.of(
+                    "success", false, "message", "Không tìm thấy địa chỉ đã chọn ạ 😔"));
+
+            String deliveryAddress = (String) selectedAddr.getOrDefault("delivery_address", "");
+            String province        = (String) selectedAddr.getOrDefault("province",         "");
+            String fullAddress     = deliveryAddress + ", " + province;
+
+            // 4. Tính tổng tiền (costPrice * quantity + phí ship 30k)
+            double totalAmount = req.price * req.quantity + 30000;
+
+            // 5. Tạo customer-trading
+            Map<String, Object> tradingBody = new HashMap<>();
+            tradingBody.put("receiverName",    name);
+            tradingBody.put("receiverPhone",   phone);
+            tradingBody.put("receiverEmail",   email);
+            tradingBody.put("receiverAddress", fullAddress);
+            tradingBody.put("totalAmount",     totalAmount);
+
+            Map<String, Object> trading = orderClient.createCustomerTrading(tradingBody, token);
+            if (trading == null) return ResponseEntity.ok(Map.of(
+                    "success", false, "message", "Tạo đơn hàng thất bại ạ 😔"));
+
+            int customerTradingId = ((Number) trading.get("id")).intValue();
+
+            // 6. Tạo order
+            String paymentMethodEnum = "bank".equals(req.paymentMethod)
+                    ? "BANK_TRANSFER" : "CASH";
+
+            Map<String, Object> orderBody = new HashMap<>();
+            orderBody.put("customerTradingId", customerTradingId);
+            orderBody.put("note",              req.note != null ? req.note : "");
+            orderBody.put("account_id",        userId);
+            orderBody.put("paymentMethod",     paymentMethodEnum);
+
+            Map<String, Object> order = orderClient.createOrder(orderBody, token);
+            if (order == null) return ResponseEntity.ok(Map.of(
+                    "success", false, "message", "Tạo đơn hàng thất bại ạ 😔"));
+
+            int orderId = ((Number) order.get("id")).intValue();
+
+            // 7. Tạo order-detail
+            Map<String, Object> detailBody = new HashMap<>();
+            detailBody.put("productName",  req.productName);
+            detailBody.put("quantity",     req.quantity);
+            detailBody.put("unitPrice",    req.price);
+            detailBody.put("totalPrice",   req.price * req.quantity);
+            detailBody.put("orderId",      orderId);
+            detailBody.put("productId",    req.productId);
+            detailBody.put("sizeDetailId", req.sizeDetailId);
+
+            orderClient.createOrderDetail(detailBody, token);
+
+            // 8. Nếu bank → tạo invoice → trả invoiceCode để FE navigate /payment
+            if ("bank".equals(req.paymentMethod)) {
+                Map<String, Object> invoiceBody = new HashMap<>();
+                invoiceBody.put("orderId",        orderId);
+                invoiceBody.put("paymentMethod",  "BANK_TRANSFER");
+                invoiceBody.put("paymentStatus",  "UNPAID");
+
+                Map<String, Object> invoice = orderClient.createInvoice(invoiceBody, token);
+                if (invoice == null) return ResponseEntity.ok(Map.of(
+                        "success", false, "message", "Tạo hóa đơn thất bại ạ 😔"));
+
+                // FE dùng paymentInfo này để navigate /payment (giống Checkout)
+                return ResponseEntity.ok(Map.of(
+                        "success",     true,
+                        "paymentMethod", "bank",
+                        "paymentInfo", Map.of(
+                                "orderId",      orderId,
+                                "amount",       totalAmount,
+                                "invoiceId",    ((Number) invoice.get("id")).intValue(),
+                                "invoiceCode",  invoice.getOrDefault("invoiceCode", "")
+                        ),
+                        "message", "Đặt hàng thành công! Đang chuyển đến trang thanh toán 🎉"));
+            }
+
+            // 9. Cash → done
+            return ResponseEntity.ok(Map.of(
+                    "success",       true,
+                    "paymentMethod", "cash",
+                    "orderId",       orderId,
+                    "message",       "Đặt hàng thành công! Cảm ơn anh/chị đã mua hàng 🎉"));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "Có lỗi xảy ra ạ 😔 " + e.getMessage()));
+        }
+    }
+
     // ── Inner class ───────────────────────────────────────────────────────────
 
     public static class PromptRequest {
@@ -608,4 +781,17 @@ public class ChatController {
         public String getPrompt() { return prompt; }
         public void setPrompt(String prompt) { this.prompt = prompt; }
     }
+
+    // ── OrderConfirmRequest ───────────────────────────────────────────────────
+    public static class OrderConfirmRequest {
+        public int    productId;
+        public String productName;
+        public int    sizeDetailId;
+        public int    quantity;
+        public double price;
+        public int    addressId;
+        public String paymentMethod; // "cash" | "bank"
+        public String note;
+    }
+
 }
