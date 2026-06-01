@@ -38,3 +38,16 @@ eureka:
     instance-id: ${spring.application.name}:${server.port}
     prefer-ip-address: true
     ip-address: 127.0.0.1
+
+
+management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
