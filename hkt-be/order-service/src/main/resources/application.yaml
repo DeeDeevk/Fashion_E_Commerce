@@ -59,3 +59,14 @@ sepay:
 server:
   port: 8085
 
+management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
