@@ -21,6 +21,10 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -157,7 +161,10 @@ public class ProductService {
 
     @Caching(evict = {
             @CacheEvict(value = "allProducts", allEntries = true),
-            @CacheEvict(value = "productsByIds", allEntries = true)
+            @CacheEvict(value = "productsByIds", allEntries = true),
+            @CacheEvict(value = "productsPage", allEntries = true),
+            @CacheEvict(value = "productsFiltered", allEntries = true)  // ✅ THÊM
+
     })
     public ProductResponse createProduct(ProductRequest productRequest) {
 
@@ -240,7 +247,10 @@ public class ProductService {
     @Caching(evict = {
             @CacheEvict(value = "allProducts", allEntries = true),
             @CacheEvict(value = "productsByIds", allEntries = true),
-            @CacheEvict(value = "product", key = "#id")
+            @CacheEvict(value = "product", key = "#id"),
+            @CacheEvict(value = "productsPage", allEntries = true),
+            @CacheEvict(value = "productsFiltered", allEntries = true)  // ✅ THÊM
+
     })
     public ProductResponse updateProduct(int id,
                                          ProductRequest productRequest) {
@@ -320,7 +330,10 @@ public class ProductService {
     @Caching(evict = {
             @CacheEvict(value = "allProducts", allEntries = true),
             @CacheEvict(value = "productsByIds", allEntries = true),
-            @CacheEvict(value = "product", key = "#id")
+            @CacheEvict(value = "product", key = "#id"),
+            @CacheEvict(value = "productsPage", allEntries = true),
+            @CacheEvict(value = "productsFiltered", allEntries = true)  // ✅ THÊM
+
     })
     public void deleteProduct(int id) {
 
@@ -440,4 +453,116 @@ public class ProductService {
                 .sizeDetails(sizeDetailResponses)
                 .build();
     }
+
+    // ==================== GET ALL WITH PAGINATION ====================
+
+    @Cacheable(value = "productsPage", key = "#page + '-' + #size")
+    public Map<String, Object> getProductsPage(int page, int size) {
+
+        System.out.println("GET PRODUCTS PAGE " + page + " FROM MYSQL");
+
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+        Page<Product> productPage = productRepository.findAll(pageable);
+
+        Map<Integer, Long> soldMap = new HashMap<>();
+
+        try {
+            Map<String, Object> response = restTemplate.getForObject(
+                    ORDER_SERVICE_URL + "/order-details/sold-quantity-all",
+                    Map.class
+            );
+
+            if (response != null && response.containsKey("result")) {
+                Map<String, Object> raw = (Map<String, Object>) response.get("result");
+                raw.forEach((k, v) ->
+                        soldMap.put(Integer.parseInt(k), ((Number) v).longValue()));
+            }
+
+        } catch (Exception e) {
+            System.out.println("LỖI gọi order-service: " + e.getMessage());
+        }
+
+        List<ProductResponse> productResponses = productPage.getContent()
+                .stream()
+                .map(product -> convertToProductResponse(
+                        product,
+                        soldMap.getOrDefault(product.getId(), 0L)))
+                .collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("result", productResponses);
+        result.put("totalPages", productPage.getTotalPages());
+        result.put("totalElements", productPage.getTotalElements());
+        result.put("currentPage", page);
+
+        return result;
+    }
+
+    // ==================== GET WITH FILTER + PAGINATION ====================
+
+    @Cacheable(value = "productsFiltered",
+            key = "#page + '-' + #size + '-' + #search + '-' + #categoryId + '-' + #minPrice + '-' + #maxPrice + '-' + #sortBy")
+    public Map<String, Object> getProductsFiltered(
+            int page, int size,
+            String search, Integer categoryId,
+            double minPrice, double maxPrice,
+            String sortBy) {
+
+        System.out.println("GET PRODUCTS FILTERED PAGE " + page + " FROM MYSQL");
+
+        String searchParam = (search == null || search.isBlank()) ? null : search;
+
+        // ── Lấy soldMap trước (dùng cho cả 2 nhánh) ──
+        Map<Integer, Long> soldMap = new HashMap<>();
+        try {
+            Map<String, Object> response = restTemplate.getForObject(
+                    ORDER_SERVICE_URL + "/order-details/sold-quantity-all", Map.class);
+            if (response != null && response.containsKey("result")) {
+                Map<String, Object> raw = (Map<String, Object>) response.get("result");
+                raw.forEach((k, v) ->
+                        soldMap.put(Integer.parseInt(k), ((Number) v).longValue()));
+            }
+        } catch (Exception e) {
+            System.out.println("LỖI gọi order-service: " + e.getMessage());
+        }
+
+        // ── Bestselling: fetch ALL → sort tay → cắt trang thủ công ──
+        if ("bestselling".equals(sortBy)) {
+            List<Product> allFiltered = productRepository.findByFiltersNoPage(
+                    searchParam, categoryId, minPrice, maxPrice);
+
+            List<ProductResponse> sorted = allFiltered.stream()
+                    .map(p -> convertToProductResponse(p, soldMap.getOrDefault(p.getId(), 0L)))
+                    .sorted((a, b) -> Long.compare(b.getSoldQuantity(), a.getSoldQuantity()))
+                    .collect(Collectors.toList());
+
+            int total     = sorted.size();
+            int fromIndex = Math.min((page - 1) * size, total);
+            int toIndex   = Math.min(fromIndex + size, total);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("result",        sorted.subList(fromIndex, toIndex));
+            result.put("totalPages",    (int) Math.ceil((double) total / size));
+            result.put("totalElements", (long) total);
+            result.put("currentPage",   page);
+            return result;
+        }
+
+        // ── Các sort khác: dùng query ORDER BY trong SQL ──
+        Pageable pageable = PageRequest.of(page - 1, size);
+        Page<Product> productPage = productRepository.findByFilters(
+                searchParam, categoryId, minPrice, maxPrice, sortBy, pageable);
+
+        List<ProductResponse> productResponses = productPage.getContent().stream()
+                .map(p -> convertToProductResponse(p, soldMap.getOrDefault(p.getId(), 0L)))
+                .collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("result",        productResponses);
+        result.put("totalPages",    productPage.getTotalPages());
+        result.put("totalElements", productPage.getTotalElements());
+        result.put("currentPage",   page);
+        return result;
+    }
 }
+
