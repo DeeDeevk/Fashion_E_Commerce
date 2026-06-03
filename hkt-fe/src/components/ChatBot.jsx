@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { X, Send, ChevronRight } from "lucide-react";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
