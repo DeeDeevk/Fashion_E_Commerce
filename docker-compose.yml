@@ -51,9 +51,12 @@ services:
       - "8080:8080"
     depends_on:
       - eureka-server
+      - redis
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
       EUREKA_INSTANCE_IP_ADDRESS: ${API_GATEWAY}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     networks:
       - hkt-network
 

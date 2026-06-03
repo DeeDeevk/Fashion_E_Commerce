@@ -4,12 +4,26 @@ server:
 spring:
   application:
     name: api-gateway
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   cloud:
     gateway:
       discovery:
         locator:
           enabled: true
           lower-case-service-id: true
+
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 100
+            redis-rate-limiter.burstCapacity: 6000
+            redis-rate-limiter.requestedTokens: 60
+            key-resolver: "#{@ipKeyResolver}"
 
       routes:
         - id: product-service-route
@@ -36,10 +50,12 @@ spring:
           uri: lb://order-service
           predicates:
             - Path=/orders/**,/order-details/**,/customers/**,/addresses/**,/customer-trading/**,/invoices/**,/api/v1/**
+
         - id: admin-service-route
           uri: lb://admin-service
           predicates:
             - Path=/admin/**
+
         - id: chat-service-route
           uri: lb://CHAT-SERVICE
           predicates:
@@ -63,7 +79,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
-    ip-address: 127.0.0.1
+    ip-address: ${EUREKA_INSTANCE_IP_ADDRESS:127.0.0.1}

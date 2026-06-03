@@ -512,9 +512,10 @@
 // };
 //
 // export default Product;
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Search, ChevronDown, ChevronLeft, ChevronRight, Grid3x3, List, SlidersHorizontal } from "lucide-react";
+import { Search, ChevronDown, ChevronLeft, ChevronRight,
+    Grid3x3, List, SlidersHorizontal } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import ChatBot from "../components/ChatBot";
 import Contact from "../components/Contact";
@@ -523,48 +524,79 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Product = () => {
     const location = useLocation();
-    const [products, setProducts] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedCategory, setSelectedCategory] = useState("all");
-    const [priceRange, setPriceRange] = useState([0, 2000000]);
-    const [sortBy, setSortBy] = useState("default");
-    const [viewMode, setViewMode] = useState("grid");
-    const [currentPage, setCurrentPage] = useState(1);
-    const [wishlistMap, setWishlistMap] = useState({});
-    const itemsPerPage = viewMode === "grid" ? 9 : 9;
 
-    const { hotProductIds, newProductIds } = useMemo(() => {
-        if (products.length === 0) return { hotProductIds: [], newProductIds: [] };
-        const sortedBySold = [...products].sort((a, b) => (b.soldQuantity || 0) - (a.soldQuantity || 0));
-        const top5Hot = sortedBySold.slice(0, 5).map((p) => p.id);
-        const sortedByDate = [...products].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-        const top5New = sortedByDate.slice(0, 5).map((p) => p.id);
-        return { hotProductIds: top5Hot, newProductIds: top5New };
-    }, [products]);
+    // ── State ──────────────────────────────────────────────
+    const [products, setProducts]           = useState([]);
+    const [categories, setCategories]       = useState([]);
+    const [loading, setLoading]             = useState(true);
+    const [searchTerm, setSearchTerm]       = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState(""); // ✅ FIX: debounced value
+    const [selectedCategory, setSelectedCategory] = useState("");
+    const [priceRange, setPriceRange]       = useState([0, 2000000]);
+    const [sortBy, setSortBy]               = useState("default");
+    const [viewMode, setViewMode]           = useState("grid");
+    const [currentPage, setCurrentPage]     = useState(1);
+    const [totalPages, setTotalPages]       = useState(1);
+    const [totalElements, setTotalElements] = useState(0);
+    const [wishlistMap, setWishlistMap]     = useState({});
+    const itemsPerPage = 9;
 
+    // ── Đọc sort param từ URL ───────────────────────────────
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const sortParam = params.get("sort");
-        if (sortParam === "bestselling" || sortParam === "newest") setSortBy(sortParam);
+        if (sortParam === "bestselling" || sortParam === "newest")
+            setSortBy(sortParam);
     }, [location.search]);
 
+    // ── FIX 1: Debounce search — cập nhật debouncedSearch sau 300ms ──
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setCurrentPage(1); // reset về trang 1 khi search
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    // ── Fetch sản phẩm từ server (có filter + pagination) ───
     useEffect(() => {
         const fetchProducts = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`${BASE_URL}/products`);
+
+                const params = new URLSearchParams({
+                    page:              currentPage,
+                    size:              itemsPerPage,
+                    search:            debouncedSearch, // ✅ FIX 1: dùng giá trị debounced
+                    minPrice:          priceRange[0],
+                    maxPrice:          priceRange[1],
+                    sortBy,
+                });
+                if (selectedCategory) params.set("categoryId", selectedCategory);
+
+                const response = await fetch(`${BASE_URL}/products/filter?${params}`);
                 if (response.ok) {
                     const data = await response.json();
-                    setProducts(data.result || []);
+                    setProducts(data.result        || []);
+                    setTotalPages(data.totalPages   ?? 1);
+                    setTotalElements(data.totalElements ?? 0);
                 }
-            } catch (error) { console.error("Error fetching products:", error); }
-            finally { setLoading(false); }
+            } catch (error) {
+                console.error("Error fetching products:", error);
+            } finally {
+                setLoading(false);
+            }
         };
-        fetchProducts();
-    }, []);
 
+        fetchProducts();
+    }, [currentPage, selectedCategory, sortBy, priceRange, debouncedSearch]);
+    // ✅ FIX 1: thêm debouncedSearch vào dependency array
+
+    // Khi filter thay đổi → về trang 1
+    useEffect(() => { setCurrentPage(1); },
+        [selectedCategory, sortBy, priceRange]);
+
+    // ── Wishlist ────────────────────────────────────────────
     useEffect(() => {
         if (!products.length || !localStorage.getItem("accessToken")) return;
         const ids = products.map((p) => p.id).join(",");
@@ -576,59 +608,42 @@ const Product = () => {
             .catch(() => {});
     }, [products]);
 
+    // ── Fetch categories ────────────────────────────────────
     useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const response = await fetch(`${BASE_URL}/categories`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setCategories(data.result || []);
-                }
-            } catch (error) { console.error("Error fetching categories:", error); }
-        };
-        fetchCategories();
+        fetch(`${BASE_URL}/categories`)
+            .then((r) => r.json())
+            .then((data) => setCategories(data.result || []))
+            .catch(console.error);
     }, []);
 
-    useEffect(() => { setCurrentPage(1); }, [selectedCategory, sortBy, viewMode]);
+    // ── Hot / New badges ────────────────────────────────────
+    const soldSorted = [...products].sort((a, b) =>
+        (b.soldQuantity || 0) - (a.soldQuantity || 0));
+    const hotProductIds = soldSorted.slice(0, 5).map((p) => p.id);
 
-    const processedProducts = useMemo(() => {
-        let filtered = [...products].filter((p) => p.status === "ACTIVE");
-        if (searchTerm) filtered = filtered.filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-        if (selectedCategory !== "all") {
-            const catId = parseInt(selectedCategory);
-            filtered = filtered.filter((p) => p.category?.id === catId);
-        }
-        filtered = filtered.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1]);
+    const dateSorted = [...products].sort((a, b) =>
+        new Date(b.updatedAt) - new Date(a.updatedAt));
+    const newProductIds = dateSorted
+        .slice(0, 5)
+        .map((p) => p.id)
+        .filter((id) => !hotProductIds.includes(id));
 
-        switch (sortBy) {
-            case "price-low": filtered.sort((a, b) => a.price - b.price); break;
-            case "price-high": filtered.sort((a, b) => b.price - a.price); break;
-            case "newest": filtered.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)); break;
-            case "bestselling": filtered.sort((a, b) => (b.soldQuantity || 0) - (a.soldQuantity || 0)); break;
-            default: break;
-        }
-        return filtered;
-    }, [products, searchTerm, selectedCategory, priceRange, sortBy]);
-
-    const totalPages = Math.ceil(processedProducts.length / itemsPerPage);
-    const paginatedProducts = processedProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    const formatPrice = (price) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
+    const formatPrice = (price) =>
+        new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
 
     const sortOptions = [
-        { value: "default", label: "Default Order" },
-        { value: "price-low", label: "Price: Low to High" },
-        { value: "price-high", label: "Price: High to Low" },
-        { value: "newest", label: "Newest First" },
+        { value: "default",     label: "Default Order" },
+        { value: "price-low",   label: "Price: Low to High" },
+        { value: "price-high",  label: "Price: High to Low" },
+        { value: "newest",      label: "Newest First" },
         { value: "bestselling", label: "Best Selling" },
     ];
 
     return (
         <div className="min-h-screen bg-[#faf9f7] font-sans">
 
-            {/* EDITORIAL HERO SECTION */}
+            {/* HERO */}
             <div className="bg-[#1a1a1a] text-[#faf9f7] py-20 px-4 sm:px-6 relative overflow-hidden">
-                {/* Minimalist Background Pattern */}
                 <div className="absolute inset-0 opacity-10 flex justify-center items-center pointer-events-none">
                     <h1 className="text-[15vw] font-serif leading-none whitespace-nowrap">HKT STUDIO</h1>
                 </div>
@@ -637,7 +652,7 @@ const Product = () => {
                     <h1 className="text-5xl md:text-7xl font-serif mb-8">The Collection</h1>
                     <div className="flex justify-center gap-12 text-center max-w-2xl mx-auto border-t border-[#333] pt-8">
                         <div>
-                            <div className="text-2xl font-serif">{products.length}</div>
+                            <div className="text-2xl font-serif">{totalElements}</div>
                             <div className="text-[0.65rem] uppercase tracking-widest text-[#888] mt-1">Designs</div>
                         </div>
                         <div>
@@ -653,29 +668,29 @@ const Product = () => {
 
                     {/* SIDEBAR */}
                     <aside className="lg:col-span-1 border-r border-[#e8e4df] pr-8 hidden lg:block">
-                        {/* Categories */}
                         <div className="mb-12">
                             <h3 className="text-[0.7rem] font-bold tracking-[0.15em] uppercase text-[#1a1a1a] mb-6 border-b border-[#e8e4df] pb-3">Categories</h3>
                             <ul className="space-y-4">
                                 <li>
-                                    <button onClick={() => setSelectedCategory("all")} className={`text-[0.75rem] uppercase tracking-widest transition-colors ${selectedCategory === "all" ? "text-[#1a1a1a] font-bold" : "text-[#888] hover:text-[#1a1a1a]"}`}>
+                                    <button onClick={() => setSelectedCategory("")}
+                                            className={`text-[0.75rem] uppercase tracking-widest transition-colors ${selectedCategory === "" ? "text-[#1a1a1a] font-bold" : "text-[#888] hover:text-[#1a1a1a]"}`}>
                                         All Collection
                                     </button>
                                 </li>
-                                {categories.map((category) => (
-                                    <li key={category.id}>
-                                        <button onClick={() => setSelectedCategory(category.id.toString())} className={`text-[0.75rem] uppercase tracking-widest transition-colors ${selectedCategory === category.id.toString() ? "text-[#1a1a1a] font-bold" : "text-[#888] hover:text-[#1a1a1a]"}`}>
-                                            {category.name}
+                                {categories.map((cat) => (
+                                    <li key={cat.id}>
+                                        <button onClick={() => setSelectedCategory(cat.id.toString())}
+                                                className={`text-[0.75rem] uppercase tracking-widest transition-colors ${selectedCategory === cat.id.toString() ? "text-[#1a1a1a] font-bold" : "text-[#888] hover:text-[#1a1a1a]"}`}>
+                                            {cat.name}
                                         </button>
                                     </li>
                                 ))}
                             </ul>
                         </div>
 
-                        {/* Price Range */}
                         <div>
                             <h3 className="text-[0.7rem] font-bold tracking-[0.15em] uppercase text-[#1a1a1a] mb-6 border-b border-[#e8e4df] pb-3 flex items-center gap-2">
-                                <SlidersHorizontal size={14}/> Filter by Price
+                                <SlidersHorizontal size={14} /> Filter by Price
                             </h3>
                             <div className="space-y-6">
                                 <div className="text-[0.7rem] tracking-widest text-[#1a1a1a] font-medium flex justify-between">
@@ -683,34 +698,41 @@ const Product = () => {
                                     <span>{formatPrice(priceRange[1])}</span>
                                 </div>
                                 <div className="space-y-3">
-                                    <input type="range" min="0" max="2000000" step="50000" value={priceRange[0]} onChange={(e) => setPriceRange([parseInt(e.target.value), priceRange[1]])} className="w-full h-0.5 bg-[#e8e4df] appearance-none cursor-pointer accent-[#1a1a1a]" />
-                                    <input type="range" min="0" max="2000000" step="50000" value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])} className="w-full h-0.5 bg-[#e8e4df] appearance-none cursor-pointer accent-[#1a1a1a]" />
+                                    <input type="range" min="0" max="2000000" step="50000"
+                                           value={priceRange[0]}
+                                           onChange={(e) => setPriceRange([parseInt(e.target.value), priceRange[1]])}
+                                           className="w-full h-0.5 bg-[#e8e4df] appearance-none cursor-pointer accent-[#1a1a1a]" />
+                                    <input type="range" min="0" max="2000000" step="50000"
+                                           value={priceRange[1]}
+                                           onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
+                                           className="w-full h-0.5 bg-[#e8e4df] appearance-none cursor-pointer accent-[#1a1a1a]" />
                                 </div>
                             </div>
                         </div>
                     </aside>
 
-                    {/* MAIN CONTENT */}
+                    {/* MAIN */}
                     <main className="lg:col-span-3">
 
                         {/* TOOLBAR */}
                         <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-10 pb-6 border-b border-[#e8e4df]">
-                            {/* Search */}
                             <div className="relative w-full md:w-1/2">
                                 <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-[#888]" size={16} />
-                                <input type="text" placeholder="Search collection..." className="w-full pl-8 pr-4 py-2 bg-transparent border-b border-[#e8e4df] focus:border-[#1a1a1a] outline-none text-sm text-[#1a1a1a] transition-colors" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                <input type="text" placeholder="Search collection..."
+                                       className="w-full pl-8 pr-4 py-2 bg-transparent border-b border-[#e8e4df] focus:border-[#1a1a1a] outline-none text-sm text-[#1a1a1a] transition-colors"
+                                       value={searchTerm}
+                                       onChange={(e) => setSearchTerm(e.target.value)} />
                             </div>
 
                             <div className="flex items-center gap-6 w-full md:w-auto">
-                                {/* Sort */}
                                 <div className="relative w-full md:w-48">
-                                    <select className="appearance-none w-full bg-transparent border-b border-[#e8e4df] py-2 text-[0.7rem] uppercase tracking-widest text-[#1a1a1a] focus:outline-none focus:border-[#1a1a1a] cursor-pointer" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                                        {sortOptions.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                    <select className="appearance-none w-full bg-transparent border-b border-[#e8e4df] py-2 text-[0.7rem] uppercase tracking-widest text-[#1a1a1a] focus:outline-none focus:border-[#1a1a1a] cursor-pointer"
+                                            value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                                        {sortOptions.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>))}
                                     </select>
                                     <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-[#1a1a1a]" />
                                 </div>
-
-                                {/* View Mode */}
                                 <div className="hidden md:flex gap-3">
                                     <button onClick={() => setViewMode("grid")} className={`transition-colors ${viewMode === "grid" ? "text-[#1a1a1a]" : "text-[#888] hover:text-[#1a1a1a]"}`}><Grid3x3 size={18} /></button>
                                     <button onClick={() => setViewMode("list")} className={`transition-colors ${viewMode === "list" ? "text-[#1a1a1a]" : "text-[#888] hover:text-[#1a1a1a]"}`}><List size={18} /></button>
@@ -718,44 +740,55 @@ const Product = () => {
                             </div>
                         </div>
 
-                        {/* Loading */}
+                        {/* PRODUCTS */}
                         {loading ? (
                             <div className="flex justify-center items-center h-64">
                                 <div className="w-8 h-8 border-2 border-[#1a1a1a] border-t-transparent rounded-full animate-spin"></div>
                             </div>
-                        ) : paginatedProducts.length > 0 ? (
+                        ) : products.length > 0 ? (
                             <>
-                                <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-12" : "flex flex-col gap-10"}>
-                                    {paginatedProducts.map((product) => (
+                                <div className={viewMode === "grid"
+                                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-12"
+                                    : "flex flex-col gap-10"}>
+                                    {products.map((product) => (
                                         <ProductCard
                                             key={product.id}
                                             product={product}
                                             isHot={hotProductIds.includes(product.id)}
-                                            isNew={newProductIds.includes(product.id) && !hotProductIds.includes(product.id)}
+                                            isNew={newProductIds.includes(product.id)}
                                             viewMode={viewMode}
                                             isInWishlist={wishlistMap[product.id] ?? false}
-                                            onWishlistChange={(id, status) => setWishlistMap((prev) => ({ ...prev, [id]: status }))}
+                                            onWishlistChange={(id, status) =>
+                                                setWishlistMap((prev) => ({ ...prev, [id]: status }))}
                                         />
                                     ))}
                                 </div>
 
-                                {/* Pagination */}
+                                {/* PAGINATION */}
                                 {totalPages > 1 && (
                                     <div className="flex justify-center items-center gap-4 mt-16 pt-8 border-t border-[#e8e4df]">
-                                        <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className={`p-2 transition-colors ${currentPage === 1 ? "text-[#e8e4df] cursor-not-allowed" : "text-[#1a1a1a] hover:text-[#888]"}`}><ChevronLeft size={20} /></button>
+                                        <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                                disabled={currentPage === 1}
+                                                className={`p-2 transition-colors ${currentPage === 1 ? "text-[#e8e4df] cursor-not-allowed" : "text-[#1a1a1a] hover:text-[#888]"}`}>
+                                            <ChevronLeft size={20} />
+                                        </button>
                                         <div className="flex gap-2">
                                             {[...Array(totalPages)].map((_, i) => (
-                                                <button key={i + 1} onClick={() => setCurrentPage(i + 1)} className={`w-8 h-8 flex items-center justify-center text-[0.75rem] transition-colors ${currentPage === i + 1 ? "bg-[#1a1a1a] text-white" : "text-[#1a1a1a] hover:bg-[#e8e4df]"}`}>
+                                                <button key={i + 1} onClick={() => setCurrentPage(i + 1)}
+                                                        className={`w-8 h-8 flex items-center justify-center text-[0.75rem] transition-colors ${currentPage === i + 1 ? "bg-[#1a1a1a] text-white" : "text-[#1a1a1a] hover:bg-[#e8e4df]"}`}>
                                                     {i + 1}
                                                 </button>
                                             ))}
                                         </div>
-                                        <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className={`p-2 transition-colors ${currentPage === totalPages ? "text-[#e8e4df] cursor-not-allowed" : "text-[#1a1a1a] hover:text-[#888]"}`}><ChevronRight size={20} /></button>
+                                        <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                                disabled={currentPage === totalPages}
+                                                className={`p-2 transition-colors ${currentPage === totalPages ? "text-[#e8e4df] cursor-not-allowed" : "text-[#1a1a1a] hover:text-[#888]"}`}>
+                                            <ChevronRight size={20} />
+                                        </button>
                                     </div>
                                 )}
                             </>
                         ) : (
-                            /* No Results */
                             <div className="text-center py-32">
                                 <Search size={32} className="mx-auto text-[#e8e4df] mb-6" />
                                 <h3 className="text-xl font-serif text-[#1a1a1a] mb-2">No designs found</h3>

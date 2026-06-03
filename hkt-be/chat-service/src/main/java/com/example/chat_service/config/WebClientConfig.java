@@ -10,7 +10,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class WebClientConfig {
 
-    // Bean cho Groq API (external)
+    // ── Groq AI (external) ────────────────────────────────────────────────────
     @Bean("groqWebClient")
     public WebClient groqWebClient(
             @Value("${groq.api.url}") String groqApiUrl,
@@ -22,6 +22,7 @@ public class WebClientConfig {
                 .build();
     }
 
+    // ── Jina AI (external) ────────────────────────────────────────────────────
     @Bean("jinaWebClient")
     public WebClient jinaWebClient(
             @Value("${jina.api.key}") String jinaApiKey) {
@@ -32,6 +33,14 @@ public class WebClientConfig {
                 .build();
     }
 
+    // ── Load-balanced builder (Eureka) ────────────────────────────────────────
+    @Bean("loadBalancedBuilder")
+    @LoadBalanced
+    public WebClient.Builder loadBalancedWebClientBuilder() {
+        return WebClient.builder();
+    }
+
+    // ── Cart Service (internal) ───────────────────────────────────────────────
     @Bean("cartWebClient")
     public WebClient cartWebClient(
             @Qualifier("loadBalancedBuilder") WebClient.Builder loadBalancedBuilder) {
@@ -41,10 +50,13 @@ public class WebClientConfig {
                 .build();
     }
 
-    // Bean cho internal service (Eureka load balanced)
-    @Bean("loadBalancedBuilder")
-    @LoadBalanced
-    public WebClient.Builder loadBalancedWebClientBuilder() {
-        return WebClient.builder();
+    // ── Order Service (internal) ──────────────────────────────────────────────
+    @Bean("orderWebClient")
+    public WebClient orderWebClient(
+            @Qualifier("loadBalancedBuilder") WebClient.Builder loadBalancedBuilder) {
+        return loadBalancedBuilder
+                .baseUrl("lb://order-service")
+                .defaultHeader("Content-Type", "application/json")
+                .build();
     }
 }

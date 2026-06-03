@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,6 +27,14 @@ import org.springframework.web.bind.annotation.RestController;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProductController {
     ProductService productService;
+
+    @GetMapping("/paged")
+    public ResponseEntity<Map<String, Object>> getProductsPaged(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(productService.getProductsPage(page, size));
+    }
 
     @GetMapping
     public ApiResponse<List<ProductResponse>> getAllProducts() {
@@ -90,6 +100,21 @@ public class ProductController {
         return ApiResponse.<Object>builder()
                 .result(productService.getDashboardStats())
                 .build();
+    }
+
+    // ✅ THÊM endpoint filter + phân trang
+    @GetMapping("/filter")
+    public ResponseEntity<Map<String, Object>> getProductsFiltered(
+            @RequestParam(defaultValue = "1")         int page,
+            @RequestParam(defaultValue = "9")         int size,
+            @RequestParam(defaultValue = "")          String search,
+            @RequestParam(required = false)           Integer categoryId,
+            @RequestParam(defaultValue = "0")         double minPrice,
+            @RequestParam(defaultValue = "2000000")   double maxPrice,
+            @RequestParam(defaultValue = "default")   String sortBy
+    ) {
+        return ResponseEntity.ok(productService.getProductsFiltered(
+                page, size, search, categoryId, minPrice, maxPrice, sortBy));
     }
 
 }
