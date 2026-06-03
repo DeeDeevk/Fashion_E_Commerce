@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Search, User, ShoppingCart, Menu, X, LogOut } from "lucide-react";
+import axiosClient from '../services/api/axiosClient.js';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -28,30 +29,23 @@ export default function Header() {
   }, []);
 
   const fetchCartCount = async () => {
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem('accessToken');
     if (token) {
       try {
-        const storedUser = JSON.parse(localStorage.getItem("user"));
-        if (storedUser && storedUser.id) {
-          const res = await fetch(
-            `${BASE_URL}/carts/account/${storedUser.id}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
-          if (res.ok) {
-            const data = await res.json();
-            setCartCount(data.result?.totalQuantity || 0);
-          }
+        const storedUser = JSON.parse(localStorage.getItem('user'));
+        if (storedUser?.id) {
+          const data = await axiosClient.get(`/carts/account/${storedUser.id}`);
+          setCartCount(data.data?.result?.totalQuantity || 0);
         }
       } catch (error) {
-        console.error("Lỗi khi lấy số lượng giỏ hàng thành viên:", error);
+        if (!error.rateLimited) {
+          console.error('Lỗi khi lấy số lượng giỏ hàng:', error);
+        }
       }
     } else {
-      const guestCart = JSON.parse(localStorage.getItem("guestCart")) || [];
+      const guestCart = JSON.parse(localStorage.getItem('guestCart')) || [];
       const totalQty = guestCart.reduce(
-        (sum, item) => sum + Number(item.quantity || 0),
-        0,
+          (sum, item) => sum + Number(item.quantity || 0), 0
       );
       setCartCount(totalQty);
     }
@@ -105,20 +99,16 @@ export default function Header() {
 
   const fetchUser = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const res = await fetch(`${BASE_URL}/accounts/myinfor`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      setUser(data.result);
-      if (data.result && data.result.id) {
-        localStorage.setItem("user", JSON.stringify(data.result));
+      const data = await axiosClient.get('/accounts/myinfor');
+      const result = data.data?.result ?? data.data;
+      setUser(result);
+      if (result?.id) {
+        localStorage.setItem('user', JSON.stringify(result));
       }
     } catch (error) {
-      console.error("Lỗi fetch user", error);
+      if (!error.rateLimited) {
+        console.error('Lỗi fetch user', error);
+      }
     }
   };
 
@@ -132,17 +122,12 @@ export default function Header() {
 
   const fetchCart = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const res = await fetch(`${BASE_URL}/carts/account/${user.id}`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      setCart(data.result);
+      const data = await axiosClient.get(`/carts/account/${user.id}`);
+      setCart(data.data?.result);
     } catch (error) {
-      console.error("Lỗi fetch cart: ", error);
+      if (!error.rateLimited) {
+        console.error('Lỗi fetch cart:', error);
+      }
     }
   };
 

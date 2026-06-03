@@ -25,7 +25,23 @@ import UserOnlyRoute from "./components/UserOnlyRoute";
 import { jwtDecode } from "jwt-decode";
 import Profile from "./pages/Profile.jsx";
 import Order from "./pages/Order.jsx";
+import { useEffect } from "react";
+import { toast } from "sonner";
+
+
+
 function App() {
+  useEffect(() => {
+    const handler = (e) => {
+      const { seconds } = e.detail;
+      toast.error('Bạn gửi quá nhiều yêu cầu!', {
+        description: `Vui lòng thử lại sau ${seconds} giây.`,
+        duration: 5000,
+      });
+    };
+    window.addEventListener('rate-limit', handler);
+    return () => window.removeEventListener('rate-limit', handler);
+  }, []);
   return (
     <>
       <Toaster richColors closeButton position="top-right" />
