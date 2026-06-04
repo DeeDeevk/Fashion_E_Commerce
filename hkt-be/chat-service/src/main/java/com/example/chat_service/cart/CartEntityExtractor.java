@@ -29,8 +29,8 @@ public class CartEntityExtractor {
 
     public static class ExtractedEntities {
         public String productName = "";  // tên sản phẩm thuần túy, không có action words
-        public String size        = "M"; // XS/S/M/L/XL/XXL
-        public int    quantity    = 1;
+        public String size        = ""; // XS/S/M/L/XL/XXL
+        public int    quantity    = 0;
         public boolean fromContext = false; // true nếu productName trống (user dùng đại từ)
 
         @Override
@@ -43,30 +43,39 @@ public class CartEntityExtractor {
     // ── System prompt — rất ngắn gọn để Groq trả nhanh ──────────────────────
 
     private static final String SYSTEM_PROMPT = """
-            Bạn là parser JSON. Nhiệm vụ: extract thông tin từ câu tiếng Việt của người dùng.
-            
-            Output PHẢI là JSON thuần (không có markdown, không có ```json, không giải thích):
-            {"productName":"...","size":"...","quantity":N}
-            
-            Quy tắc extract:
-            - productName: CHỈ tên sản phẩm. Bỏ hết: "thêm", "xóa", "mua", "giỏ hàng", "cart",
-              "cho tôi", "giúp em", "nhé", "nha", "ạ", "đi", "với", "vào giỏ", "khỏi giỏ",
-              "cái này", "sản phẩm đó", "nó", "vậy", số lượng, size.
-              Nếu không có tên cụ thể (chỉ có đại từ như "nó","cái đó") → productName = ""
-            - size: XS/S/M/L/XL/XXL. "size lớn"→L, "size nhỏ"→S, "size vừa"→M.
-              Mặc định "M" nếu không nhắc.
-            - quantity: số nguyên dương. "hai"→2, "một"→1, "vài"→2. Mặc định 1.
-            
-            Ví dụ:
-            input: "thêm 2 cái quần jogger size L vào giỏ"
-            output: {"productName":"quần jogger","size":"L","quantity":2}
-            
-            input: "xóa nó đi"
-            output: {"productName":"","size":"M","quantity":1}
-            
-            input: "mua áo polo trắng size XL cho tôi nhé"
-            output: {"productName":"áo polo trắng","size":"XL","quantity":1}
-            """;
+    Bạn là parser JSON chuyên nghiệp. Nhiệm vụ: extract thông tin từ câu tiếng Việt của người dùng một cách chính xác.
+
+    Output PHẢI là JSON thuần (không markdown, không ```json, không giải thích thêm):
+    {"productName":"...","size":"...","quantity":N}
+
+    Quy tắc extract nghiêm ngặt:
+    - productName: CHỈ tên sản phẩm thuần túy. Bỏ hết các từ hành động ("thêm", "xóa", "mua", "đặt", "giỏ hàng", "cart", "cho tôi", "giúp em", "nhé", "nha", "ạ", "đi", "với", "vào giỏ", "khỏi giỏ", "cái này", "sản phẩm đó", "nó", "vậy đó"...). 
+      Nếu chỉ có đại từ ("nó", "cái đó", "cái này", "thứ đó") → productName = ""
+
+    - size: Chỉ extract nếu user nói rõ (XS, S, M, L, XL, XXL, size lớn, size nhỏ, size vừa...). 
+      Nếu không nhắc đến size → size phải là chuỗi rỗng ""
+
+    - quantity: Chỉ extract số lượng cụ thể ("2 cái", "ba chiếc", "một", "vài"). 
+      Nếu không đề cập số lượng → quantity = 0
+
+    TUYỆT ĐỐI KHÔNG tự động điền mặc định "M" hoặc 1.
+
+    Ví dụ:
+    input: "thêm 2 cái quần jogger size L vào giỏ"
+    output: {"productName":"quần jogger","size":"L","quantity":2}
+
+    input: "xóa nó đi"
+    output: {"productName":"","size":"","quantity":0}
+
+    input: "mua áo polo trắng size XL cho tôi nhé"
+    output: {"productName":"áo polo trắng","size":"XL","quantity":1}
+
+    input: "thêm áo thun vào giỏ"
+    output: {"productName":"áo thun","size":"","quantity":0}
+
+    input: "thêm quần jeans size L"
+    output: {"productName":"quần jeans","size":"L","quantity":0}
+    """;
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -103,21 +112,24 @@ public class CartEntityExtractor {
             result.fromContext  = result.productName.isBlank();
 
             // size
-            Object size = map.get("size");
-            result.size = resolveSize(size != null ? size.toString() : "");
+            Object sizeObj = map.get("size");
+            result.size = resolveSize(sizeObj != null ? sizeObj.toString() : "");
 
             // quantity
-            Object qty = map.get("quantity");
-            if (qty instanceof Number) {
-                result.quantity = Math.max(1, ((Number) qty).intValue());
-            } else if (qty != null) {
-                try { result.quantity = Math.max(1, Integer.parseInt(qty.toString())); }
-                catch (NumberFormatException ignored) { result.quantity = 1; }
+            Object qtyObj = map.get("quantity");
+            if (qtyObj instanceof Number) {
+                result.quantity = ((Number) qtyObj).intValue();
+            } else if (qtyObj != null) {
+                try {
+                    result.quantity = Integer.parseInt(qtyObj.toString());
+                } catch (NumberFormatException ignored) {
+                    result.quantity = 0;
+                }
+            } else {
+                result.quantity = 0;
             }
-
             System.out.printf("[CartEntityExtractor] '%s' → %s%n", userPrompt, result);
             return result;
-
         } catch (Exception e) {
             System.err.printf("[CartEntityExtractor] Parse failed for '%s': %s%n",
                     userPrompt, e.getMessage());
@@ -132,7 +144,9 @@ public class CartEntityExtractor {
      * Groq đôi khi trả "size L", "l", "Large", v.v.
      */
     private String resolveSize(String raw) {
-        if (raw == null || raw.isBlank()) return "M";
+        if (raw == null || raw.isBlank()) {
+            return "";
+        }
         String s = raw.toUpperCase().replaceAll("SIZE\\s*", "").trim();
         return switch (s) {
             case "XS", "EXTRA SMALL" -> "XS";
@@ -140,13 +154,15 @@ public class CartEntityExtractor {
             case "L",  "LARGE"       -> "L";
             case "XL", "EXTRA LARGE" -> "XL";
             case "XXL","DOUBLE XL"   -> "XXL";
-            default                  -> "M"; // M, MEDIUM, hoặc anything unknown
+            default                  -> ""; // M, MEDIUM, hoặc anything unknown
         };
     }
 
     private ExtractedEntities fallback() {
         ExtractedEntities e = new ExtractedEntities();
-        e.fromContext = true; // coi như không extract được gì
+        e.fromContext = true;
+        e.size = "";
+        e.quantity = 0;
         return e;
     }
 }

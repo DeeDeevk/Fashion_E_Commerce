@@ -2,28 +2,74 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { X, Send, ChevronRight } from "lucide-react";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+/* ─────────────────────────────────────────────
+   Inline style constants  (đồng bộ Home/Contact)
+───────────────────────────────────────────── */
+const C = {
+  bg:        "#faf9f7",
+  bgWhite:   "#fff",
+  border:    "#e8e4df",
+  dark:      "#1a1a1a",
+  darkHover: "#333",
+  muted:     "#888",
+  subtle:    "#f0ece6",
+  serif:     "'Georgia', 'Times New Roman', serif",
+  sans:      "sans-serif",
+};
+
+const btn = (active = true) => ({
+  padding:         "10px 20px",
+  background:      active ? C.dark : "transparent",
+  color:           active ? C.bg : C.dark,
+  border:          `1px solid ${C.dark}`,
+  borderRadius:    0,
+  cursor:          "pointer",
+  fontFamily:      C.sans,
+  fontSize:        "0.68rem",
+  letterSpacing:   "0.18em",
+  textTransform:   "uppercase",
+  transition:      "background 0.2s, color 0.2s",
+  display:         "inline-flex",
+  alignItems:      "center",
+  gap:             6,
+  whiteSpace:      "nowrap",
+});
+
+const ghostBtn = {
+  ...btn(false),
+  width:    "100%",
+  padding:  "11px 16px",
+  justifyContent: "center",
+};
+
+/* ─────────────────────────────────────────────
+   ChatBot component
+───────────────────────────────────────────── */
 const ChatBot = () => {
-  const [chatOpen, setChatOpen] = useState(false);
-  const navigate = useNavigate();
-  const [messages, setMessages] = useState([
+  const [chatOpen, setChatOpen]       = useState(false);
+  const navigate                      = useNavigate();
+  const [messages, setMessages]       = useState([
     {
       sender: "bot",
-      text: "Xin chào! Mình là trợ lý mua sắm đây. Bạn đang tìm sản phẩm nào hôm nay?",
+      text:   "Xin chào! Mình là trợ lý mua sắm đây. Bạn đang tìm sản phẩm nào hôm nay?",
     },
   ]);
-  // ★ messagesRef luôn giữ giá trị messages mới nhất — dùng để đọc trong async handlers
   const messagesRef = useRef([]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
-  const [input, setInput] = useState("");
+  const [input,       setInput]       = useState("");
   const [chatLoading, setChatLoading] = useState(false);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef                = useRef(null);
 
-  // ── Persist chat history qua F5 ─────────────────────────────────────────
+  /* ── hover state for buttons ── */
+  const [hovered, setHovered] = useState({});
+  const onEnter = (k) => setHovered((p) => ({ ...p, [k]: true }));
+  const onLeave = (k) => setHovered((p) => ({ ...p, [k]: false }));
+
+  /* ── Persist chat history ── */
   useEffect(() => {
     const saved = localStorage.getItem("kh3t_chat_history");
     if (saved) {
@@ -32,82 +78,61 @@ const ChatBot = () => {
         if (parsed.length > 1 || (parsed.length === 1 && parsed[0].sender === "user")) {
           setMessages(parsed);
         }
-      } catch (e) {
-        console.error("Lỗi parse chat history:", e);
-      }
+      } catch (e) { console.error("Lỗi parse chat history:", e); }
     }
   }, []);
 
   useEffect(() => {
-    const hasRealMessage =
-        messages.length > 1 || (messages.length === 1 && messages[0].sender === "user");
-    if (hasRealMessage) {
-      localStorage.setItem("kh3t_chat_history", JSON.stringify(messages));
-    }
+    const hasReal = messages.length > 1 || (messages.length === 1 && messages[0].sender === "user");
+    if (hasReal) localStorage.setItem("kh3t_chat_history", JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
     const handleLogout = () => {
       localStorage.removeItem("kh3t_chat_history");
-      setMessages([{
-        sender: "bot",
-        text: "Xin chào! Mình là trợ lý mua sắm đây. Bạn đang tìm sản phẩm nào hôm nay?",
-      }]);
+      setMessages([{ sender: "bot", text: "Xin chào! Mình là trợ lý mua sắm đây. Bạn đang tìm sản phẩm nào hôm nay?" }]);
     };
     window.addEventListener("logout", handleLogout);
     return () => window.removeEventListener("logout", handleLogout);
   }, []);
 
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, chatLoading]);
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  /* ── Helpers ── */
   const formatVND = (amount) =>
       new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
-
-  const getToken = () => localStorage.getItem("accessToken");
-
+  const getToken  = () => localStorage.getItem("accessToken");
   const getUserId = () => {
-    try {
-      const u = localStorage.getItem("user");
-      return u ? JSON.parse(u).id : null;
-    } catch { return null; }
+    try { const u = localStorage.getItem("user"); return u ? JSON.parse(u).id : null; }
+    catch { return null; }
   };
 
-  // ── Send message ─────────────────────────────────────────────────────────
+  /* ── Send message ── */
   const sendMessage = async () => {
     if (!input.trim() || chatLoading) return;
-
     const userMessage = input.trim();
     setMessages((prev) => [...prev, { sender: "user", text: userMessage }]);
     setInput("");
     setChatLoading(true);
-
     try {
       const token = getToken();
       const res = await fetch(`${BASE_URL}/chat/ask`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ prompt: userMessage }),
+        method:  "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body:    JSON.stringify({ prompt: userMessage }),
       });
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-
       setMessages((prev) => [
         ...prev,
         (() => {
           const msgId = Date.now() + Math.random();
           return {
-            sender: "bot",
+            sender:            "bot",
             msgId,
-            text: data.message || "Dạ em chưa hiểu lắm ạ!",
+            text:              data.message || "Dạ em chưa hiểu lắm ạ!",
             suggestedProducts: data.suggestedProducts || [],
             compareIds:        data.compareIds  || null,
             cartAction:        data.cartAction  ? { ...data.cartAction,  msgId } : null,
@@ -117,27 +142,17 @@ const ChatBot = () => {
       ]);
     } catch (err) {
       console.error("Chat error:", err);
-      setMessages((prev) => [
-        ...prev,
-        { sender: "bot", text: "Oops! Có lỗi kết nối rồi, thử lại sau ít phút nhé!" },
-      ]);
+      setMessages((prev) => [...prev, { sender: "bot", text: "Oops! Có lỗi kết nối rồi, thử lại sau ít phút nhé!" }]);
     } finally {
       setChatLoading(false);
     }
   };
 
-  // ── BUY_NOW Step 1: user click nút chọn payment ──────────────────────────
-  // → Fetch địa chỉ → hiển thị danh sách để user chọn
+  /* ── BUY_NOW Step 1 ── */
   const handleSelectPayment = async (msgIndex, paymentMethod) => {
     const token = getToken();
-    if (!token) {
-      toast.warning("Anh/chị vui lòng đăng nhập trước nhé! 🔐");
-      return;
-    }
-
-    // ★ Đọc buyAction snapshot TRƯỚC setMessages
+    if (!token) { toast.warning("Anh/chị vui lòng đăng nhập trước nhé! 🔐"); return; }
     const currentBuyAction = messagesRef.current[msgIndex]?.buyAction;
-
     setMessages((prev) =>
         prev.map((m, idx) =>
             idx === msgIndex && m.buyAction
@@ -145,32 +160,15 @@ const ChatBot = () => {
                 : m,
         ),
     );
-
     try {
-      console.log("[ChatBot] Fetching addresses from:", `${BASE_URL}/chat/order/addresses`);
       const res = await fetch(`${BASE_URL}/chat/order/addresses`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      console.log("[ChatBot] Address response status:", res.status);
-
-      // Reset loadingAddress nếu BE lỗi HTTP
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("[ChatBot] Address fetch HTTP error:", res.status, errText);
-        throw new Error(`HTTP ${res.status}: ${errText}`);
-      }
-
-      const data = await res.json();
-      console.log("[ChatBot] Address data:", data);
-
+      if (!res.ok) { const t = await res.text(); throw new Error(`HTTP ${res.status}: ${t}`); }
+      const data      = await res.json();
       if (data.error) throw new Error(data.error);
-
-      // BE có thể trả { addresses: [...] } hoặc { result: [...] } tuỳ service
       const addresses = data.addresses || data.result || [];
-
       if (addresses.length === 0) {
-        // Không có địa chỉ → báo lỗi, navigate checkout
         setMessages((prev) =>
             prev.map((m, idx) =>
                 idx === msgIndex && m.buyAction
@@ -178,40 +176,18 @@ const ChatBot = () => {
                     : m,
             ),
         );
-        setMessages((prev) => [
-          ...prev,
-          {
-            sender: "bot",
-            text: "Anh/chị chưa có địa chỉ nào được lưu 😔 Em sẽ chuyển sang trang Checkout để anh/chị nhập địa chỉ nhé!",
-          },
-        ]);
+        setMessages((prev) => [...prev, { sender: "bot", text: "Anh/chị chưa có địa chỉ nào được lưu 😔 Em sẽ chuyển sang trang Checkout để anh/chị nhập địa chỉ nhé!" }]);
         setTimeout(() => {
           navigate("/checkout", {
-            state: {
-              userId:         getUserId(),
-              product:        currentBuyAction?.productInfo,
-              quantity:       currentBuyAction?.quantity,
-              sizeDetailId:   currentBuyAction?.sizeDetailId,
-              defaultPayment: paymentMethod,
-            },
+            state: { userId: getUserId(), product: currentBuyAction?.productInfo, quantity: currentBuyAction?.quantity, sizeDetailId: currentBuyAction?.sizeDetailId, defaultPayment: paymentMethod },
           });
         }, 1000);
         return;
       }
-
-      // Có địa chỉ → gắn vào buyAction để render danh sách
       setMessages((prev) =>
           prev.map((m, idx) =>
               idx === msgIndex && m.buyAction
-                  ? {
-                    ...m,
-                    buyAction: {
-                      ...m.buyAction,
-                      loadingAddress:  false,
-                      addresses:       addresses,
-                      selectedPayment: paymentMethod,
-                    },
-                  }
+                  ? { ...m, buyAction: { ...m.buyAction, loadingAddress: false, addresses, selectedPayment: paymentMethod } }
                   : m,
           ),
       );
@@ -219,28 +195,19 @@ const ChatBot = () => {
       console.error(err);
       setMessages((prev) =>
           prev.map((m, idx) =>
-              idx === msgIndex && m.buyAction
-                  ? { ...m, buyAction: { ...m.buyAction, loadingAddress: false } }
-                  : m,
+              idx === msgIndex && m.buyAction ? { ...m, buyAction: { ...m.buyAction, loadingAddress: false } } : m,
           ),
       );
       toast.error("Lỗi lấy danh sách địa chỉ 😔");
     }
   };
 
-  // ── BUY_NOW Step 2: user chọn địa chỉ → gọi /chat/order/confirm ─────────
+  /* ── BUY_NOW Step 2 ── */
   const handleConfirmOrder = async (msgIndex, addressId) => {
-    const token = getToken();
+    const token     = getToken();
     if (!token) return;
-
-    // ★ Đọc buyAction snapshot TRƯỚC khi setMessages (setMessages là async)
     const buyAction = messagesRef.current[msgIndex]?.buyAction;
-    if (!buyAction) {
-      toast.error("Không tìm thấy thông tin đơn hàng 😔");
-      return;
-    }
-
-    // Mark confirming
+    if (!buyAction) { toast.error("Không tìm thấy thông tin đơn hàng 😔"); return; }
     setMessages((prev) =>
         prev.map((m, idx) =>
             idx === msgIndex && m.buyAction
@@ -248,31 +215,18 @@ const ChatBot = () => {
                 : m,
         ),
     );
-
     try {
       const body = {
-        productId:     buyAction.productId,
-        productName:   buyAction.productName,
-        sizeDetailId:  buyAction.sizeDetailId,
-        quantity:      buyAction.quantity,
-        price:         buyAction.price,
-        addressId:     addressId,
-        paymentMethod: buyAction.selectedPayment,
-        note:          "",
+        productId: buyAction.productId, productName: buyAction.productName,
+        sizeDetailId: buyAction.sizeDetailId, quantity: buyAction.quantity,
+        price: buyAction.price, addressId, paymentMethod: buyAction.selectedPayment, note: "",
       };
-
-      const res = await fetch(`${BASE_URL}/chat/order/confirm`, {
+      const res  = await fetch(`${BASE_URL}/chat/order/confirm`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization:  `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body:   JSON.stringify(body),
       });
-
       const data = await res.json();
-
-      // Đánh dấu toàn bộ buyAction đã xong
       setMessages((prev) =>
           prev.map((m, idx) =>
               idx === msgIndex && m.buyAction
@@ -280,80 +234,54 @@ const ChatBot = () => {
                   : m,
           ),
       );
-
       if (!data.success) {
-        setMessages((prev) => [
-          ...prev,
-          { sender: "bot", text: data.message || "Đặt hàng thất bại ạ 😔" },
-        ]);
+        setMessages((prev) => [...prev, { sender: "bot", text: data.message || "Đặt hàng thất bại ạ 😔" }]);
         return;
       }
-
-      // Thành công
       toast.success("Đặt hàng thành công! 🎉");
-      setMessages((prev) => [
-        ...prev,
-        { sender: "bot", text: data.message },
-      ]);
-
-      // Bank → navigate /payment (giống Checkout.jsx)
+      setMessages((prev) => [...prev, { sender: "bot", text: data.message }]);
       if (data.paymentMethod === "bank" && data.paymentInfo) {
         sessionStorage.setItem("paymentInfo", JSON.stringify(data.paymentInfo));
         setTimeout(() => navigate("/payment"), 1000);
       }
-      // Cash → ở lại, user đọc tin nhắn xác nhận
-
     } catch (err) {
       console.error(err);
       setMessages((prev) =>
           prev.map((m, idx) =>
-              idx === msgIndex && m.buyAction
-                  ? { ...m, buyAction: { ...m.buyAction, confirming: false } }
-                  : m,
+              idx === msgIndex && m.buyAction ? { ...m, buyAction: { ...m.buyAction, confirming: false } } : m,
           ),
       );
-      setMessages((prev) => [
-        ...prev,
-        { sender: "bot", text: "Có lỗi khi đặt hàng 😔 Anh/chị thử lại nhé!" },
-      ]);
+      setMessages((prev) => [...prev, { sender: "bot", text: "Có lỗi khi đặt hàng 😔 Anh/chị thử lại nhé!" }]);
     }
   };
 
-  // ── ADD/REMOVE cart action ────────────────────────────────────────────────
+  /* ── Cart action ── */
   const handleCartAction = async (cartAction) => {
     if (cartAction.loading || cartAction.confirmed) return;
-
     setMessages((prev) =>
         prev.map((m) =>
-            m.cartAction?.msgId === cartAction.msgId
-                ? { ...m, cartAction: { ...m.cartAction, loading: true } }
-                : m,
+            m.cartAction?.msgId === cartAction.msgId ? { ...m, cartAction: { ...m.cartAction, loading: true } } : m,
         ),
     );
-
     try {
-      const token = getToken();
-      let endpoint = "";
-      let body = {};
-
+      const token    = getToken();
+      let endpoint   = "";
+      let body       = {};
       if (cartAction.type === "ADD_TO_CART") {
         endpoint = `${BASE_URL}/chat/cart/confirm-add`;
-        body = { productId: cartAction.productId, sizeDetailId: cartAction.sizeDetailId, quantity: cartAction.quantity };
+        body     = { productId: cartAction.productId, sizeDetailId: cartAction.sizeDetailId, quantity: cartAction.quantity };
       }
       if (cartAction.type === "REMOVE_FROM_CART") {
         endpoint = `${BASE_URL}/chat/cart/confirm-remove`;
-        body = { cartDetailId: cartAction.cartDetailId };
+        body     = { cartDetailId: cartAction.cartDetailId };
       }
-
       const res = await fetch(endpoint, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
+        body:    JSON.stringify(body),
       });
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-
       setMessages((prev) =>
           prev.map((m) =>
               m.cartAction?.msgId === cartAction.msgId
@@ -361,10 +289,7 @@ const ChatBot = () => {
                   : m,
           ),
       );
-      setMessages((prev) => [
-        ...prev,
-        { sender: "bot", text: data.message || "Thao tác thành công 🎉" },
-      ]);
+      setMessages((prev) => [...prev, { sender: "bot", text: data.message || "Thao tác thành công 🎉" }]);
       toast.success(
           cartAction.type === "ADD_TO_CART"
               ? `Đã thêm ${cartAction.productName} vào giỏ hàng! 🛒`
@@ -374,9 +299,7 @@ const ChatBot = () => {
       console.error(err);
       setMessages((prev) =>
           prev.map((m) =>
-              m.cartAction?.msgId === cartAction.msgId
-                  ? { ...m, cartAction: { ...m.cartAction, loading: false } }
-                  : m,
+              m.cartAction?.msgId === cartAction.msgId ? { ...m, cartAction: { ...m.cartAction, loading: false } } : m,
           ),
       );
       setMessages((prev) => [...prev, { sender: "bot", text: "Có lỗi khi xử lý giỏ hàng 😔" }]);
@@ -387,105 +310,141 @@ const ChatBot = () => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
-  // ── Render BuyAction UI ───────────────────────────────────────────────────
+  /* ──────────────────────────────────────────
+     Render BUY action UI
+  ────────────────────────────────────────── */
   const renderBuyAction = (buyAction, msgIndex) => {
-    if (!buyAction || buyAction.confirmed) {
-      if (buyAction?.confirmed) {
-        return (
-            <div className="mt-2 px-3 py-2 bg-green-50 rounded-xl border border-green-200 text-sm text-green-700 font-medium">
-              ✅ {buyAction.confirming ? "Đang xử lý đơn hàng..." : "Đơn hàng đã được xử lý!"}
-            </div>
-        );
-      }
-      return null;
+    if (!buyAction) return null;
+
+    if (buyAction.confirmed) {
+      return (
+          <div style={{
+            marginTop: 8, padding: "8px 12px",
+            border: `1px solid ${C.border}`, background: C.subtle,
+            fontSize: "0.72rem", letterSpacing: "0.08em",
+            textTransform: "uppercase", color: C.dark, textAlign: "center",
+          }}>
+            {buyAction.confirming ? "Đang xử lý đơn hàng..." : "Đơn hàng đã được xử lý"}
+          </div>
+      );
     }
 
-    // Order summary luôn hiển thị
     const summary = (
-        <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200 text-sm">
-          <p className="font-semibold text-amber-800">🛍️ Đơn hàng:</p>
-          <p className="text-gray-700 mt-1">
-            <span className="font-medium">{buyAction.productName}</span>
+        <div style={{
+          marginTop: 8, padding: "10px 14px",
+          border: `1px solid ${C.border}`, background: C.bgWhite,
+          fontSize: "0.78rem", lineHeight: 1.6, color: C.dark,
+        }}>
+          <p style={{ fontSize: "0.65rem", letterSpacing: "0.18em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>
+            Đơn hàng
+          </p>
+          <p style={{ margin: 0 }}>
+            <strong style={{ fontFamily: C.serif, fontWeight: 400 }}>{buyAction.productName}</strong>
             {" "}· Size {buyAction.size} · SL: {buyAction.quantity}
           </p>
-          <p className="text-red-600 font-bold mt-1">
+          <p style={{ margin: "4px 0 0", fontWeight: 600, fontSize: "0.88rem" }}>
             {formatVND(buyAction.price * buyAction.quantity + 30000)}
-            <span className="text-xs font-normal text-gray-500 ml-1">(gồm ship 30k)</span>
+            <span style={{ fontSize: "0.7rem", fontWeight: 400, color: C.muted, marginLeft: 6 }}>(gồm ship 30k)</span>
           </p>
         </div>
     );
 
-    // Step 1: Chọn payment method
+    /* Step 1: chọn payment */
     if (!buyAction.selectedPayment) {
       return (
           <>
             {summary}
-            <p className="text-xs text-gray-500 text-center mt-2">Chọn phương thức thanh toán:</p>
-            <div className="flex gap-2 mt-1">
-              <button
-                  onClick={() => handleSelectPayment(msgIndex, "cash")}
-                  className="flex-1 py-3 px-2 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-sm transition-all"
-              >
-                💵 Tiền mặt
-              </button>
-              <button
-                  onClick={() => handleSelectPayment(msgIndex, "bank")}
-                  className="flex-1 py-3 px-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold text-sm transition-all"
-              >
-                📱 Chuyển khoản
-              </button>
+            <p style={{ fontSize: "0.65rem", letterSpacing: "0.15em", textTransform: "uppercase", color: C.muted, marginTop: 10, marginBottom: 6 }}>
+              Phương thức thanh toán
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              {["cash", "bank"].map((method) => {
+                const key   = `pay-${method}-${msgIndex}`;
+                const label = method === "cash" ? "Tiền mặt" : "Chuyển khoản";
+                const isHov = hovered[key];
+                return (
+                    <button
+                        key={method}
+                        onClick={() => handleSelectPayment(msgIndex, method)}
+                        onMouseEnter={() => onEnter(key)}
+                        onMouseLeave={() => onLeave(key)}
+                        style={{ ...ghostBtn, flex: 1, background: isHov ? C.dark : "transparent", color: isHov ? C.bg : C.dark }}
+                    >
+                      {label}
+                    </button>
+                );
+              })}
             </div>
           </>
       );
     }
 
-    // Loading địa chỉ
+    /* Loading địa chỉ */
     if (buyAction.loadingAddress) {
       return (
           <>
             {summary}
-            <div className="mt-2 text-sm text-gray-500 text-center animate-pulse">
+            <p style={{ fontSize: "0.72rem", color: C.muted, textAlign: "center", marginTop: 10, letterSpacing: "0.1em" }}>
               Đang tải địa chỉ...
-            </div>
+            </p>
           </>
       );
     }
 
-    // Step 2: Chọn địa chỉ
+    /* Step 2: chọn địa chỉ */
     if (buyAction.addresses && !buyAction.selectedAddressId) {
-      const paymentLabel = buyAction.selectedPayment === "bank" ? "📱 Chuyển khoản" : "💵 Tiền mặt";
+      const payLabel = buyAction.selectedPayment === "bank" ? "Chuyển khoản" : "Tiền mặt";
       return (
           <>
             {summary}
-            <div className="mt-2 px-2 py-1 bg-blue-50 rounded-lg text-xs text-blue-700 font-medium">
-              Thanh toán: {paymentLabel}
+            <div style={{
+              marginTop: 8, padding: "6px 10px",
+              border: `1px solid ${C.border}`, background: C.subtle,
+              fontSize: "0.65rem", letterSpacing: "0.15em",
+              textTransform: "uppercase", color: C.dark,
+            }}>
+              Thanh toán: {payLabel}
             </div>
-            <p className="text-xs text-gray-500 mt-2">Chọn địa chỉ giao hàng:</p>
-            <div className="mt-1 space-y-2 max-h-48 overflow-y-auto">
-              {buyAction.addresses.map((addr) => (
-                  <button
-                      key={addr.id}
-                      onClick={() => handleConfirmOrder(msgIndex, addr.id)}
-                      disabled={buyAction.confirming}
-                      className="w-full text-left p-3 bg-white hover:bg-green-50 border border-gray-200 hover:border-green-400 rounded-xl text-sm transition-all"
-                  >
-                    <p className="font-medium text-gray-800">{addr.delivery_address}</p>
-                    <p className="text-gray-500 text-xs mt-0.5">{addr.province}</p>
-                  </button>
-              ))}
+            <p style={{ fontSize: "0.65rem", letterSpacing: "0.15em", textTransform: "uppercase", color: C.muted, marginTop: 10, marginBottom: 6 }}>
+              Địa chỉ giao hàng
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto" }}>
+              {buyAction.addresses.map((addr) => {
+                const key   = `addr-${addr.id}`;
+                const isHov = hovered[key];
+                return (
+                    <button
+                        key={addr.id}
+                        onClick={() => handleConfirmOrder(msgIndex, addr.id)}
+                        disabled={buyAction.confirming}
+                        onMouseEnter={() => onEnter(key)}
+                        onMouseLeave={() => onLeave(key)}
+                        style={{
+                          width: "100%", textAlign: "left", padding: "10px 12px",
+                          background: isHov ? C.subtle : C.bgWhite,
+                          border: `1px solid ${isHov ? C.dark : C.border}`,
+                          cursor: "pointer", fontSize: "0.78rem", color: C.dark,
+                          transition: "border-color 0.2s, background 0.2s",
+                        }}
+                    >
+                      <p style={{ margin: 0, fontFamily: C.serif, fontWeight: 400 }}>{addr.delivery_address}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: "0.68rem", color: C.muted }}>{addr.province}</p>
+                    </button>
+                );
+              })}
             </div>
           </>
       );
     }
 
-    // Confirming
+    /* Confirming */
     if (buyAction.confirming) {
       return (
           <>
             {summary}
-            <div className="mt-2 text-sm text-gray-500 text-center animate-pulse">
+            <p style={{ fontSize: "0.72rem", color: C.muted, textAlign: "center", marginTop: 10, letterSpacing: "0.1em" }}>
               Đang đặt hàng...
-            </div>
+            </p>
           </>
       );
     }
@@ -493,137 +452,285 @@ const ChatBot = () => {
     return null;
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  /* ──────────────────────────────────────────
+     Main render
+  ────────────────────────────────────────── */
   return (
       <>
-        {/* Nút nổi góc dưới phải */}
+        <style>{`
+        @keyframes chatBounce {
+          0%,80%,100% { transform: translateY(0); }
+          40%          { transform: translateY(-5px); }
+        }
+        .chat-dot { animation: chatBounce 1.2s infinite; }
+        .chat-dot:nth-child(2) { animation-delay: 0.2s; }
+        .chat-dot:nth-child(3) { animation-delay: 0.4s; }
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-track { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb { background: ${C.border}; }
+      `}</style>
+
+        {/* ── Toggle button ── */}
         <button
             onClick={() => {
               setChatOpen(!chatOpen);
               window.dispatchEvent(new Event(chatOpen ? "chatbotClosed" : "chatbotOpened"));
             }}
-            className="group fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all duration-300 ring-4 ring-white/50"
+            onMouseEnter={(e) => { e.currentTarget.style.background = C.darkHover; e.currentTarget.style.transform = "scale(1.06)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = C.dark;      e.currentTarget.style.transform = "scale(1)"; }}
+            style={{
+              position:   "fixed", bottom: 24, right: 24, zIndex: 50,
+              width: 56, height: 56, borderRadius: 0,
+              background: C.dark, border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: C.bg,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+              transition: "background 0.25s, transform 0.25s",
+            }}
+            aria-label={chatOpen ? "Đóng chat" : "Mở chat"}
         >
-          <div className="absolute inset-0 -z-10 rounded-full bg-red-600/60 blur-xl opacity-70 group-hover:opacity-100 transition duration-300" />
           {chatOpen ? (
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="square" d="M6 18L18 6M6 6l12 12" />
               </svg>
           ) : (
-              <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2v3l-3-3H9a2 2 0 0 1-2-2v-1" />
-                <path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3 3v-3H5a2 2 0 0 1-2-2V6z" />
-                <circle cx="9" cy="9" r="1" />
-                <circle cx="13" cy="9" r="1" />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="square" strokeLinejoin="miter" d="M17 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2v3l-3-3H9a2 2 0 0 1-2-2v-1" />
+                <path strokeLinecap="square" strokeLinejoin="miter" d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3 3v-3H5a2 2 0 0 1-2-2V6z" />
               </svg>
           )}
         </button>
 
-        {/* Cửa sổ chat */}
+        {/* ── Chat window ── */}
         {chatOpen && (
-            <div className="fixed right-6 bottom-24 z-50 w-96 h-120 bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
+            <div style={{
+              position:   "fixed", right: 24, bottom: 90, zIndex: 50,
+              width:      380,
+              background: C.bg,
+              border:     `1px solid ${C.border}`,
+              display:    "flex", flexDirection: "column",
+              boxShadow:  "0 8px 40px rgba(0,0,0,0.12)",
+              fontFamily: C.sans,
+            }}>
+
               {/* Header */}
-              <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white p-4 flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-full overflow-hidden border-2 border-white shadow-lg">
+              <div style={{
+                background: C.dark, color: C.bg,
+                padding:    "14px 20px",
+                display:    "flex", alignItems: "center", gap: 12,
+                flexShrink: 0,
+              }}>
+                <div style={{
+                  width: 36, height: 36, flexShrink: 0,
+                  overflow: "hidden", border: `1px solid #444`,
+                }}>
                   <img
-                      src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPJteM29wDFaITjbx1jOkFsIPRa6JKw-508w&s"
+                      src="https://i.fbcd.co/products/resized/resized-750-500/820fc47f335cb00aa55022f9e6cb249e4749388f0cd980f7494de817125628ad.jpg"
                       alt="Trợ lý"
-                      className="w-full h-full object-cover"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 </div>
                 <div>
-                  <h3 className="font-bold">Trợ lý mua sắm</h3>
-                  <p className="text-xs opacity-90">Luôn online • Hỗ trợ 24/7</p>
+                  <p style={{ fontFamily: C.serif, fontSize: "0.9rem", fontWeight: 400, margin: 0, color: C.bg }}>
+                    Trợ lý mua sắm
+                  </p>
+                  <p style={{ fontSize: "0.62rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)", margin: "2px 0 0" }}>
+                    Luôn online · Hỗ trợ 24/7
+                  </p>
                 </div>
+                <button
+                    onClick={() => { setChatOpen(false); window.dispatchEvent(new Event("chatbotClosed")); }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}
+                    style={{
+                      marginLeft: "auto", background: "none", border: "none",
+                      cursor: "pointer", color: "rgba(255,255,255,0.45)",
+                      display: "flex", alignItems: "center", padding: 4,
+                      transition: "color 0.2s",
+                    }}
+                    aria-label="Đóng"
+                >
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="square" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+              <div
+                  className="chat-messages"
+                  style={{
+                    flex:       1, overflowY: "auto",
+                    padding:    "20px 16px",
+                    background: C.bg,
+                    display:    "flex", flexDirection: "column", gap: 12,
+                    minHeight:  320, maxHeight: 420,
+                  }}
+              >
                 {messages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                    <div key={i} style={{ display: "flex", justifyContent: msg.sender === "user" ? "flex-end" : "flex-start" }}>
                       {msg.sender === "user" ? (
-                          <div className="max-w-xs px-4 py-3 rounded-2xl bg-red-500 text-white rounded-tr-none">
+                          /* User bubble */
+                          <div style={{
+                            background:  C.dark, color: C.bg,
+                            padding:     "10px 14px",
+                            fontSize:    "0.82rem", lineHeight: 1.6,
+                            maxWidth:    "80%",
+                          }}>
                             {msg.text}
                           </div>
                       ) : (
-                          <div className="max-w-lg">
-                            {/* Text */}
-                            <div className="px-4 py-3 bg-white rounded-2xl shadow rounded-tl-none whitespace-pre-wrap">
+                          /* Bot bubble */
+                          <div style={{ maxWidth: "88%" }}>
+                            <div style={{
+                              background:  C.bgWhite,
+                              border:      `1px solid ${C.border}`,
+                              padding:     "10px 14px",
+                              fontSize:    "0.82rem", lineHeight: 1.6,
+                              color:       C.dark,
+                              whiteSpace:  "pre-wrap",
+                            }}>
                               {msg.text}
                             </div>
 
                             {/* Suggested products */}
                             {msg.suggestedProducts?.length > 0 && (
-                                <div className="mt-3 space-y-2">
-                                  {msg.suggestedProducts.map((product) => (
-                                      <button
-                                          key={product.id}
-                                          onClick={() => navigate(`/product/${product.id}`)}
-                                          className="block w-full p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl border border-red-200 hover:border-red-400 hover:shadow-lg transition-all transform hover:scale-105 text-left"
-                                      >
-                                        <div className="flex items-center justify-between">
+                                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                                  {msg.suggestedProducts.map((product) => {
+                                    const k   = `prod-${product.id}-${i}`;
+                                    const isH = hovered[k];
+                                    return (
+                                        <button
+                                            key={product.id}
+                                            onClick={() => navigate(`/product/${product.id}`)}
+                                            onMouseEnter={() => onEnter(k)}
+                                            onMouseLeave={() => onLeave(k)}
+                                            style={{
+                                              display: "flex", alignItems: "center", justifyContent: "space-between",
+                                              padding: "10px 14px", cursor: "pointer",
+                                              background:   isH ? C.subtle : C.bgWhite,
+                                              border:       `1px solid ${isH ? C.dark : C.border}`,
+                                              color:        C.dark,
+                                              transition:   "border-color 0.2s, background 0.2s",
+                                              textAlign:    "left",
+                                            }}
+                                        >
                                           <div>
-                                            <p className="font-semibold text-red-700">Xem ngay: {product.name}</p>
-                                            <p className="text-xs text-gray-600 mt-1">Click để xem chi tiết sản phẩm</p>
+                                            <p style={{ fontFamily: C.serif, fontSize: "0.82rem", fontWeight: 400, margin: 0 }}>
+                                              {product.name}
+                                            </p>
+                                            <p style={{ fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, margin: "3px 0 0" }}>
+                                              Xem chi tiết
+                                            </p>
                                           </div>
-                                          <span className="text-2xl ml-3">→</span>
-                                        </div>
-                                      </button>
-                                  ))}
+                                          <svg width="14" height="14" fill="none" stroke={C.dark} viewBox="0 0 24 24" strokeWidth={1.5}>
+                                            <path strokeLinecap="square" d="M9 18l6-6-6-6" />
+                                          </svg>
+                                        </button>
+                                    );
+                                  })}
                                 </div>
                             )}
 
-                            {/* ★ BUY_NOW UI */}
+                            {/* BUY_NOW UI */}
                             {renderBuyAction(msg.buyAction, i)}
 
-                            {/* ADD/REMOVE cart */}
-                            {msg.cartAction && !msg.cartAction.confirmed && !msg.cartAction.loading && (
-                                <div className="mt-3">
-                                  <button
-                                      onClick={() => handleCartAction(msg.cartAction)}
-                                      className="w-full p-4 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold transition-all"
-                                  >
-                                    {msg.cartAction.type === "ADD_TO_CART"
-                                        ? "🛒 Xác nhận thêm vào giỏ"
-                                        : "🗑️ Xác nhận xóa khỏi giỏ"}
-                                  </button>
+                            {/* Cart action */}
+                            {msg.cartAction && !msg.cartAction.confirmed && (
+                                <div style={{ marginTop: 8 }}>
+                                  {msg.cartAction.loading ? (
+                                      <div style={{ fontSize: "0.72rem", color: C.muted, textAlign: "center", letterSpacing: "0.1em" }}>
+                                        Đang xử lý...
+                                      </div>
+                                  ) : (() => {
+                                    const k   = `cart-${msg.cartAction.msgId}`;
+                                    const isH = hovered[k];
+                                    return (
+                                        <button
+                                            onClick={() => handleCartAction(msg.cartAction)}
+                                            onMouseEnter={() => onEnter(k)}
+                                            onMouseLeave={() => onLeave(k)}
+                                            style={{
+                                              ...ghostBtn,
+                                              background: isH ? C.dark : "transparent",
+                                              color:      isH ? C.bg : C.dark,
+                                            }}
+                                        >
+                                          {msg.cartAction.type === "ADD_TO_CART" ? "Xác nhận thêm vào giỏ" : "Xác nhận xóa khỏi giỏ"}
+                                        </button>
+                                    );
+                                  })()}
+                                </div>
+                            )}
+
+                            {/* Cart confirmed */}
+                            {msg.cartAction?.confirmed && (
+                                <div style={{
+                                  marginTop: 8, padding: "8px 12px",
+                                  border: `1px solid ${C.border}`, background: C.subtle,
+                                  fontSize: "0.72rem", letterSpacing: "0.08em",
+                                  textTransform: "uppercase", color: C.dark, textAlign: "center",
+                                }}>
+                                  Đã thực hiện
                                 </div>
                             )}
 
                             {/* Compare */}
-                            {msg.compareIds?.length >= 2 && (
-                                <div className="mt-3">
+                            {msg.compareIds?.length >= 2 && (() => {
+                              const k   = `cmp-${i}`;
+                              const isH = hovered[k];
+                              return (
                                   <button
                                       onClick={() => navigate(`/compare?ids=${msg.compareIds.join(",")}`)}
-                                      className="block w-full p-4 bg-red-50 rounded-xl border border-red-200 hover:border-red-400 hover:shadow-lg transition-all transform hover:scale-105 text-left"
+                                      onMouseEnter={() => onEnter(k)}
+                                      onMouseLeave={() => onLeave(k)}
+                                      style={{
+                                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                                        padding: "10px 14px", cursor: "pointer", marginTop: 8, width: "100%",
+                                        background:  isH ? C.subtle : C.bgWhite,
+                                        border:      `1px solid ${isH ? C.dark : C.border}`,
+                                        color:       C.dark,
+                                        transition:  "border-color 0.2s, background 0.2s",
+                                        textAlign:   "left",
+                                      }}
                                   >
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <p className="font-semibold text-red-700">
-                                          So sánh {msg.compareIds.length} sản phẩm
-                                        </p>
-                                        <p className="text-xs text-gray-600 mt-1">
-                                          Bảng so sánh chi tiết form, chất liệu, giá, size...
-                                        </p>
-                                      </div>
-                                      <span className="text-2xl ml-3">→</span>
+                                    <div>
+                                      <p style={{ fontFamily: C.serif, fontSize: "0.82rem", fontWeight: 400, margin: 0 }}>
+                                        So sánh {msg.compareIds.length} sản phẩm
+                                      </p>
+                                      <p style={{ fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, margin: "3px 0 0" }}>
+                                        Bảng chi tiết form, chất liệu, giá, size
+                                      </p>
                                     </div>
+                                    <svg width="14" height="14" fill="none" stroke={C.dark} viewBox="0 0 24 24" strokeWidth={1.5}>
+                                      <path strokeLinecap="square" d="M9 18l6-6-6-6" />
+                                    </svg>
                                   </button>
-                                </div>
-                            )}
+                              );
+                            })()}
                           </div>
                       )}
                     </div>
                 ))}
 
+                {/* Typing indicator */}
                 {chatLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-white px-4 py-3 rounded-2xl shadow rounded-tl-none">
-                        <div className="flex space-x-2">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
-                        </div>
+                    <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                      <div style={{
+                        background: C.bgWhite, border: `1px solid ${C.border}`,
+                        padding: "12px 16px", display: "flex", gap: 5, alignItems: "center",
+                      }}>
+                        {[0, 1, 2].map((n) => (
+                            <span
+                                key={n}
+                                className="chat-dot"
+                                style={{
+                                  width: 5, height: 5, background: "#bbb",
+                                  borderRadius: "50%", display: "inline-block",
+                                  animationDelay: `${n * 0.2}s`,
+                                }}
+                            />
+                        ))}
                       </div>
                     </div>
                 )}
@@ -631,25 +738,51 @@ const ChatBot = () => {
               </div>
 
               {/* Input */}
-              <div className="p-4 border-t bg-white">
-                <div className="flex gap-2">
-                  <input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      placeholder="Nhập câu hỏi của bạn..."
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:border-red-500"
-                      disabled={chatLoading}
-                  />
-                  <button
-                      onClick={sendMessage}
-                      disabled={chatLoading || !input.trim()}
-                      className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
-                  >
-                    Gửi
-                  </button>
-                </div>
+              <div style={{
+                padding:    "14px 16px",
+                borderTop:  `1px solid ${C.border}`,
+                background: C.bg,
+                display:    "flex", gap: 8, alignItems: "center",
+                flexShrink: 0,
+              }}>
+                <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Nhập câu hỏi của bạn..."
+                    disabled={chatLoading}
+                    style={{
+                      flex:        1, padding: "10px 14px",
+                      border:      `1px solid ${C.border}`,
+                      background:  C.bgWhite,
+                      fontSize:    "0.8rem", color: C.dark,
+                      fontFamily:  C.sans,
+                      outline:     "none",
+                      transition:  "border-color 0.2s",
+                    }}
+                    onFocus={(e)  => { e.target.style.borderColor = C.dark; }}
+                    onBlur={(e)   => { e.target.style.borderColor = C.border; }}
+                />
+                <button
+                    onClick={sendMessage}
+                    disabled={chatLoading || !input.trim()}
+                    onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = C.darkHover; }}
+                    onMouseLeave={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = C.dark; }}
+                    style={{
+                      padding:       "10px 18px",
+                      background:    C.dark, color: C.bg,
+                      border:        "none", cursor: "pointer",
+                      fontFamily:    C.sans,
+                      fontSize:      "0.68rem", letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      transition:    "background 0.2s",
+                      opacity:       (chatLoading || !input.trim()) ? 0.4 : 1,
+                      flexShrink:    0,
+                    }}
+                >
+                  Gửi
+                </button>
               </div>
             </div>
         )}

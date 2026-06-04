@@ -38,14 +38,15 @@ public class CartActionParser {
         public String  productKeyword;       // keyword đã extract (sạch)
         public String  resolvedProductName;  // tên sản phẩm đã match với DB
         public double  resolvedScore;
-        public String  size       = "M";
-        public int     quantity   = 1;
+        public String  size       = null;
+        public int     quantity   = 0;
         public boolean needsContext;         // true = không extract được tên, cần hỏi lại user
 
         /** Match đủ tin cậy để xử lý. */
         public boolean isResolved() {
             return resolvedProductName != null
-                    && resolvedScore >= FuzzyProductMatcher.THRESHOLD;
+                    && resolvedScore >= FuzzyProductMatcher.THRESHOLD
+                    && size != null && !size.isBlank();
         }
 
         @Override
@@ -70,15 +71,14 @@ public class CartActionParser {
         // ── Layer 2: Entity Extraction ────────────────────────────────────────
         CartEntityExtractor.ExtractedEntities entities = entityExtractor.extract(prompt);
 
-        result.size     = entities.size;
-        result.quantity = Math.max(1, entities.quantity);
+        result.size     = (entities.size != null && !entities.size.isBlank()) ? entities.size : "";
+        result.quantity = entities.quantity;
 
         // Nếu Groq không extract được tên (đại từ chỉ định / Groq fail)
-        if (entities.fromContext || entities.productName.isBlank()) {
-            result.productKeyword = "";
+        if (entities.fromContext || entities.productName.isBlank() || result.size.isBlank()) {
+            result.productKeyword = entities.productName;
             result.needsContext   = true;
-            System.out.println("[CartParser] No product name extracted → needsContext=true");
-            return result; // Caller (CartActionService) sẽ xử lý fallback
+            return result;
         }
 
         result.productKeyword = entities.productName;

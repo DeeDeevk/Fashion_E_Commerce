@@ -233,10 +233,15 @@ Thông tin shop:
         }
 
         // Quantity: default 1 nếu user không nói, không hỏi thêm
+        // Quantity: BẮT BUỘC hỏi nếu chưa có
         if (session.pendingQuantity == null) {
-            session.pendingQuantity = 1;
+            session.nextStep = AgentSession.PendingStep.AWAIT_QUANTITY;
+            return textResponse(String.format(
+                    "Anh/chị muốn %s %s size %s bao nhiêu cái ạ? 🔢",
+                    actionLabel(session.pendingIntent),
+                    session.pendingProduct,
+                    session.pendingSize != null ? session.pendingSize : "___"));
         }
-
         return executeCartAction(session, token);
     }
 
@@ -252,8 +257,11 @@ Thông tin shop:
         parsed.resolvedProductName = session.pendingProduct;
         parsed.resolvedScore       = 1.0;   // đã match rồi, không cần threshold
         parsed.productKeyword      = session.pendingProduct;
-        parsed.size                = session.pendingSize != null ? session.pendingSize : "M";
-        parsed.quantity            = session.pendingQuantity != null ? session.pendingQuantity : 1;
+        if (session.pendingSize == null || session.pendingQuantity == null) {
+            return checkAndExecuteOrAsk(session, token); // quay lại hỏi
+        }
+        parsed.size     = session.pendingSize;
+        parsed.quantity = session.pendingQuantity;
         parsed.needsContext        = false;
 
         CartIntentDetector.CartIntent intent = session.pendingIntent;
@@ -296,7 +304,9 @@ Thông tin shop:
         }
 
         // Size: chỉ lưu nếu valid
-        session.pendingSize = VALID_SIZES.contains(parsed.size) ? parsed.size : null;
+        session.pendingSize = (parsed.size != null && VALID_SIZES.contains(parsed.size))
+                ? parsed.size
+                : null;
 
         // Quantity
         session.pendingQuantity = parsed.quantity > 0 ? parsed.quantity : null;
