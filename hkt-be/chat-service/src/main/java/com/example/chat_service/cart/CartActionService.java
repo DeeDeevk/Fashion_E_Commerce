@@ -54,6 +54,12 @@ public class CartActionService {
         Product product = findBestProduct(parsed.resolvedProductName);
         if (product == null) return productNotFound(parsed.productKeyword);
 
+        if (parsed.size == null || parsed.size.isBlank()) {
+            return Map.of(
+                    "message", "Anh/chị chưa cho em biết size muốn mua ạ 📏",
+                    "suggestedProducts", List.of());
+        }
+
         // Validate quantity
         int qty = Math.max(1, parsed.quantity);
         if (qty > MAX_QUANTITY) {
@@ -112,6 +118,12 @@ public class CartActionService {
 
         Product product = findBestProduct(parsed.resolvedProductName);
         if (product == null) return productNotFound(parsed.productKeyword);
+
+        if (parsed.size == null || parsed.size.isBlank()) {
+            return Map.of(
+                    "message", "Anh/chị chưa cho em biết size muốn thêm vào giỏ ạ 📏",
+                    "suggestedProducts", List.of());
+        }
 
         String sizeStr = normSize(parsed.size);
         SizeName sizeName = parseSizeName(sizeStr);
@@ -345,7 +357,9 @@ public class CartActionService {
     // ── Shared helpers ────────────────────────────────────────────────────────
 
     private String normSize(String raw) {
-        if (raw == null || raw.isBlank()) return "M";
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
         return raw.toUpperCase().trim();
     }
 
