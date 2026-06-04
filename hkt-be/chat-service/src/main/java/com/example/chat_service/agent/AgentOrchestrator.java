@@ -408,75 +408,75 @@ Thông tin shop:
      */
     private String matchProductName(String keyword) {
         if (keyword == null || keyword.isBlank()) return null;
+
         List<Product> allProducts = productCacheService.getAllProducts();
         if (allProducts.isEmpty()) return null;
 
         String lowerKw = keyword.toLowerCase().trim();
 
-        // ── Layer 1: Substring match ──────────────────────────────────────────
-        // "necklace" contained in "Y Logo Smashed Necklace Grey" → match trực tiếp
-        List<Product> substringMatches = allProducts.stream()
-                .filter(p -> {
-                    String lowerName = p.getName().toLowerCase();
-                    // product name chứa keyword HOẶC keyword chứa một token của tên
-                    return lowerName.contains(lowerKw)
-                            || Arrays.stream(lowerName.split("[\\s\\-]+"))
-                            .anyMatch(token -> token.length() > 3 && lowerKw.contains(token));
-                })
-                .collect(Collectors.toList());
+        // === ƯU TIÊN CAO NHẤT: Exact match hoặc chứa gần như toàn bộ keyword ===
+        for (Product p : allProducts) {
+            String lowerName = p.getName().toLowerCase();
 
-        if (substringMatches.size() == 1) {
-            System.out.printf("[Agent] matchProductName('%s') → '%s' (substring exact)%n",
-                    keyword, substringMatches.get(0).getName());
-            return substringMatches.get(0).getName();
-        }
-        if (substringMatches.size() > 1) {
-            // Nhiều kết quả → chọn cái có tên ngắn nhất (thường là match chính xác nhất)
-            Product best = substringMatches.stream()
-                    .min(Comparator.comparingInt(p -> p.getName().length()))
-                    .get();
-            System.out.printf("[Agent] matchProductName('%s') → '%s' (substring best of %d)%n",
-                    keyword, best.getName(), substringMatches.size());
-            return best.getName();
+            // Exact hoặc keyword là substring dài của tên sản phẩm
+            if (lowerName.equals(lowerKw) ||
+                    lowerName.contains(lowerKw) && lowerKw.length() > 15) {
+
+                System.out.printf("[Agent] matchProductName EXACT LONG: '%s' → '%s'%n",
+                        keyword, p.getName());
+                return p.getName();
+            }
+
+            // Tên sản phẩm chứa hầu hết các từ quan trọng của keyword
+            if (containsMostWords(lowerName, lowerKw)) {
+                System.out.printf("[Agent] matchProductName HIGH-COVERAGE: '%s' → '%s'%n",
+                        keyword, p.getName());
+                return p.getName();
+            }
         }
 
-        // ── Layer 2: Vector search → Fuzzy trên candidates ───────────────────
-        // Dùng englishQuery nếu keyword là tiếng Anh, dịch nếu tiếng Việt
+        // === Fallback: Fuzzy + Vector ===
         try {
             String vectorQuery = embeddingService.translateToEnglish(keyword);
-            List<Map<String, Object>> vectorResults =
-                    vectorStoreService.searchRelevant(vectorQuery, 10);
+            List<Map<String, Object>> vectorResults = vectorStoreService.searchRelevant(vectorQuery, 10);
 
             if (!vectorResults.isEmpty()) {
                 List<String> candidates = vectorResults.stream()
                         .map(m -> (String) m.get("name"))
-                        .filter(n -> n != null && !n.isBlank())
+                        .filter(Objects::nonNull)
                         .collect(Collectors.toList());
 
-                FuzzyProductMatcher.MatchResult vectorBest =
-                        fuzzyMatcher.findBest(keyword, candidates);
-
-                System.out.printf(
-                        "[Agent] matchProductName('%s') vector→fuzzy: '%s' (%.3f)%n",
-                        keyword, vectorBest.name, vectorBest.score);
-
-                // Threshold thấp hơn vì candidates đã được semantic filter
-                if (vectorBest.score >= FuzzyProductMatcher.THRESHOLD * 0.7) {
-                    return vectorBest.name;
+                FuzzyProductMatcher.MatchResult best = fuzzyMatcher.findBest(keyword, candidates);
+                if (best.score >= FuzzyProductMatcher.THRESHOLD * 0.8) {
+                    System.out.printf("[Agent] Vector+Fuzzy best: '%s' → '%s' (%.3f)%n",
+                            keyword, best.name, best.score);
+                    return best.name;
                 }
             }
         } catch (Exception e) {
-            System.err.printf("[Agent] Vector search failed for '%s': %s%n",
-                    keyword, e.getMessage());
+            System.err.println("[Vector match error] " + e.getMessage());
         }
 
-        // ── Layer 3: Fuzzy toàn bộ DB với threshold gốc ───────────────────────
-        List<String> allNames = allProducts.stream()
-                .map(Product::getName).collect(Collectors.toList());
+        // Last resort - full fuzzy
+        List<String> allNames = allProducts.stream().map(Product::getName).collect(Collectors.toList());
         FuzzyProductMatcher.MatchResult fuzzyBest = fuzzyMatcher.findBest(keyword, allNames);
-        System.out.printf("[Agent] matchProductName('%s') fuzzy-full: '%s' (%.3f, threshold=%.2f)%n",
-                keyword, fuzzyBest.name, fuzzyBest.score, FuzzyProductMatcher.THRESHOLD);
-        return fuzzyBest.isAccepted() ? fuzzyBest.name : null;
+
+        System.out.printf("[Agent] Final Fuzzy: '%s' → '%s' (%.3f)%n",
+                keyword, fuzzyBest.name, fuzzyBest.score);
+
+        return fuzzyBest.score >= FuzzyProductMatcher.THRESHOLD * 0.85 ? fuzzyBest.name : null;
+    }
+
+    // Helper mới
+    private boolean containsMostWords(String productName, String keyword) {
+        String[] kwWords = keyword.split("\\s+");
+        int matchCount = 0;
+        for (String word : kwWords) {
+            if (word.length() > 3 && productName.contains(word)) {
+                matchCount++;
+            }
+        }
+        return matchCount >= Math.max(3, kwWords.length * 2 / 3); // ít nhất 2/3 từ phải match
     }
 
     /** Gợi ý top-3 khi không match chính xác */
@@ -778,18 +778,41 @@ Thông tin shop:
     }
 
     private List<Long> detectCompareRequest(String userPrompt, String botReply) {
-        String text = (userPrompt + " " + botReply).toLowerCase();
-        boolean isCompare = text.contains("so sánh") || text.contains(" vs ")
-                || text.contains("versus") || text.contains("đối chiếu")
-                || text.contains("khác nhau") || text.contains("nên mua cái nào");
+        String text = (userPrompt + " " + botReply).toLowerCase().trim();
+
+        // Danh sách trigger từ phong phú hơn
+        boolean isCompare =
+                text.contains("so sánh") ||
+                        text.contains(" vs ") ||
+                        text.contains("versus") ||
+                        text.contains("đối chiếu") ||
+                        text.contains("khác nhau") ||
+                        text.contains("điểm khác") ||
+                        text.contains("cái nào tốt hơn") ||
+                        text.contains("nên mua cái nào") ||
+                        text.contains("nên chọn cái nào") ||
+                        text.contains("so sánh giúp") ||
+                        text.contains("so sánh giữa") ||
+                        text.contains("khác biệt giữa");
+
         if (!isCompare) return null;
+
+        // Extract IDs từ text
         Set<Long> ids = new HashSet<>();
         for (Product p : productCacheService.getAllProducts()) {
             String name = p.getName().toLowerCase();
-            if (text.contains(name) || text.contains(name.replace(" ", "")))
+            if (text.contains(name) || text.contains(name.replace(" | ", " "))) {
                 ids.add((long) p.getId());
+            }
         }
-        return (ids.size() >= 2 && ids.size() <= 4) ? new ArrayList<>(ids) : null;
+
+        // Chỉ trigger khi có từ 2 đến 4 sản phẩm
+        if (ids.size() >= 2 && ids.size() <= 4) {
+            System.out.printf("[Agent] Compare triggered: %d products found%n", ids.size());
+            return new ArrayList<>(ids);
+        }
+
+        return null;
     }
 
     // ── Misc helpers ──────────────────────────────────────────────────────────
